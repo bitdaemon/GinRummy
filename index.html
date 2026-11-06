@@ -169,14 +169,14 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .cell{aspect-ratio:.72;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1.05;font-weight:600;
   background:rgba(255,255,255,.06);color:#6f8f80}
 .cell.mine{background:var(--card);color:var(--black);box-shadow:0 0 0 2px var(--m2)}
-.cell.gone{background:rgba(255,255,255,.18);color:#c8d6cf;text-decoration:line-through}
+.cell.gone{background:rgba(255,255,255,.18);color:#c8d6cf}
 .cell.opp{background:#ffd6d1;color:#8a1c12;box-shadow:0 0 0 2px #ff8a80}
 .cell.r{color:#e57373}.cell.mine.r{color:var(--red)}
 .cell.mine.known{box-shadow:0 0 0 2px var(--gold)}
 .lgd{display:grid;gap:6px;margin-top:10px;font-size:12.5px;color:var(--muted)}
 .lgd div{display:flex;align-items:center;gap:8px}
 .lgd i.cell{flex:none;width:20px;height:27px;aspect-ratio:auto;font-style:normal;font-size:11px}
-.cell.faded{background:rgba(255,255,255,.07);color:#8aa398;outline:1px dashed rgba(255,255,255,.3);outline-offset:-2px}
+.cell.faded{background:rgba(255,255,255,.07);color:#8aa398;outline:1px dashed rgba(255,255,255,.3);outline-offset:-2px;text-decoration:line-through}
 .cell.wrong{background:#3b2d5e;color:#d9c8ff;outline:1px dashed #9b7fd1;outline-offset:-2px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--c)}
@@ -923,7 +923,7 @@ function seenGridHTML(){
   for (const s of ['S','H','C','D']) for (const r of E.RANKS){
     const id = r+s;
     const cls = mine.has(id) ? 'mine' + (knowsYouHave.has(id)?' known':'') : opp.has(id) ? 'opp' : wrong.has(id) ? 'wrong'
-      : remembered.has(id) ? 'faded' : forgotten.has(id) ? 'gone' : '';
+      : remembered.has(id) ? 'gone' : forgotten.has(id) ? 'faded' : '';
     grid += `<div class="cell ${cls} ${(s==='H'||s==='D')?'r':''}" title="${lbl(id)}">${r==='T'?'10':r}<span>${E.SYM[s]}</span></div>`;
   }
   return `<div class="grid">${grid}</div>`;
@@ -966,8 +966,8 @@ function showSeen(){
       <div><i class="cell mine">7</i>In your hand</div>
       <div><i class="cell mine known">7</i>In your hand, and the opponent knows (you took it from the pile)</div>
       <div><i class="cell opp">7</i>In the opponent’s hand (it took it from the pile)</div>
-      <div><i class="cell faded">7</i>Discarded, and it remembers</div>
-      ${mem!=='perfect'?'<div><i class="cell gone">7</i>Discarded, but it has forgotten</div><div><i class="cell wrong">7</i>It wrongly thinks you picked this up</div>':''}
+      <div><i class="cell gone">7</i>Discarded, and it remembers</div>
+      ${mem!=='perfect'?'<div><i class="cell faded">7</i>Discarded, but it has forgotten</div><div><i class="cell wrong">7</i>It wrongly thinks you picked this up</div>':''}
       <div><i class="cell">7</i>Unknown (stock or opponent’s hand)</div></div>
     <div class="row" style="margin-top:14px"><button class="btn" data-act="close">Close</button></div>`,
     ev=>{ if(ev.target.closest('[data-act=close]')) closeModal(); });
