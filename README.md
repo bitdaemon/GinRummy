@@ -34,7 +34,8 @@ It was built as an answer to card games that *feel* rigged, where the opponent a
 - **Full standard scoring:** knock, gin, big gin, undercut, layoffs, box bonus, game bonus and shutout.
 - **Statistics,** including a luck tracker that compares your average starting hand with the opponent's.
 - **Saved progress.** If you close the app mid-hand, you continue where you left off.
-- **Optional four-colour suits** for easier reading on small screens.
+- **Animated play.** The deal, every draw, the opponent's moves and every discard are animated, so you can follow what's happening. Speed can be set to Off, Fast, Normal or Slow.
+- **Customisable look.** Choose the table colour (presets or any custom colour), the card face style (Classic, Modern, Jumbo for small screens, Vintage), the card back colour and pattern, and optional four-colour suits.
 - **Works offline,** with no account, no ads, no tracking and no server.
 
 ---
@@ -84,6 +85,7 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 | Sort your deadwood | **Deadwood by suit / rank**. Melds and sets always stay grouped on the left; only the deadwood is re-sorted |
 | See what's known | **Seen cards** |
 | Settings, stats, rules | **☰** menu |
+| Table, cards, animation speed | **☰** menu → **Appearance & animation speed** |
 
 The 🔒 line under the piles shows the current hand's lock. Tap it for the full fairness explanation.
 

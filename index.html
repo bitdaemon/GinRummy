@@ -65,7 +65,7 @@ header{display:flex;align-items:center;gap:10px;padding:4px 2px 8px}
 #hand .card.locked{filter:saturate(.6) brightness(.93)}
 #hand .card.fresh{animation:fresh .45s ease}
 @keyframes fresh{from{transform:translateY(-40px);opacity:0}to{transform:none;opacity:1}}
-#controls{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:10px 0 2px}
+#controls{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;padding:2px 0 10px;min-height:52px}
 .btn{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:9px 16px;cursor:pointer;font-size:14px;min-height:40px}
 .btn:disabled{opacity:.35;cursor:default}
 .btn.primary{background:var(--gold);color:#2a1d00;border-color:var(--gold);font-weight:600}
@@ -74,14 +74,29 @@ header{display:flex;align-items:center;gap:10px;padding:4px 2px 8px}
 .card{width:var(--cw);height:var(--ch);background:var(--card);border-radius:calc(var(--cw)*.1);
   box-shadow:0 1px 0 rgba(0,0,0,.2),0 3px 8px rgba(0,0,0,.35);position:relative;overflow:hidden;color:var(--black);flex:none}
 .card .cr{position:absolute;left:calc(var(--cw)*.07);top:calc(var(--cw)*.05);font-weight:700;line-height:.95;text-align:center;
-  font-size:calc(var(--cw)*.3);font-family:Georgia,"Times New Roman",serif}
+  font-size:calc(var(--cw)*.3);font-family:var(--face-font,Georgia,"Times New Roman",serif)}
 .card .cr i{display:block;font-style:normal;font-size:calc(var(--cw)*.27)}
 .card .cc{position:absolute;right:calc(var(--cw)*.08);bottom:calc(var(--cw)*.1);font-size:calc(var(--cw)*.55);line-height:1}
 .card.s-H,.card.s-D{color:var(--red)}
 .four .card.s-D{color:var(--blue)} .four .card.s-C{color:var(--green)}
 .card .bar{position:absolute;left:0;right:0;bottom:0;height:calc(var(--cw)*.09)}
-.card.back{background:#7a1f2b;background-image:repeating-linear-gradient(45deg,rgba(255,215,140,.18) 0 2px,transparent 2px 7px),repeating-linear-gradient(-45deg,rgba(255,215,140,.18) 0 2px,transparent 2px 7px);
-  border:3px solid #fbf8f1}
+.card.back{background-color:var(--back1,#7a1f2b);
+  background-image:repeating-linear-gradient(45deg,var(--back2,rgba(255,215,140,.18)) 0 2px,transparent 2px 7px),repeating-linear-gradient(-45deg,var(--back2,rgba(255,215,140,.18)) 0 2px,transparent 2px 7px);
+  border:3px solid var(--backrim,#fbf8f1)}
+/* Card back designs */
+.back-dots .card.back{background-image:radial-gradient(var(--back2) 18%,transparent 20%),radial-gradient(var(--back2) 18%,transparent 20%);background-size:8px 8px;background-position:0 0,4px 4px}
+.back-stripes .card.back{background-image:repeating-linear-gradient(90deg,var(--back2) 0 3px,transparent 3px 8px)}
+.back-plain .card.back{background-image:linear-gradient(transparent,transparent);box-shadow:inset 0 0 0 calc(var(--cw)*.06) var(--back1),inset 0 0 0 calc(var(--cw)*.08) var(--back2),0 3px 8px rgba(0,0,0,.35)}
+/* Card face styles */
+.face-modern{--face-font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.face-modern .card .cr{letter-spacing:-.02em}
+.face-jumbo{--face-font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.face-jumbo .card .cr{font-size:calc(var(--cw)*.42);font-weight:800;letter-spacing:-.04em}
+.face-jumbo .card .cr i{font-size:calc(var(--cw)*.34)}
+.face-jumbo .card .cc{font-size:calc(var(--cw)*.42);opacity:.85}
+.face-vintage{--face-font:Georgia,"Times New Roman",serif}
+.face-vintage .card .cr{font-style:italic}
+.face-vintage .card{background-image:radial-gradient(120% 90% at 50% 40%,transparent 60%,rgba(120,80,30,.16))}
 .mini{--cw:38px;--ch:53px}
 .mini .card{margin-right:-12px}
 .mini .card.laid{box-shadow:0 0 0 2px var(--m2);}
@@ -124,6 +139,23 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--c)}
 pre.code{background:#0b1813;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px;overflow:auto;font-size:11.5px;max-height:220px}
 textarea.copyfb{position:absolute;left:-9999px}
+/* Flying cards */
+.fly{position:fixed;z-index:40;pointer-events:none;perspective:700px;will-change:transform}
+.fly .flip{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+.fly .flip>.card{position:absolute;inset:0;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 4px 10px rgba(0,0,0,.3)}
+/* Appearance sheet */
+.swatches{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sw{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0}
+.sw.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,181,79,.35)}
+.swcard{--cw:34px;--ch:48px;cursor:pointer;border-radius:6px;padding:3px;border:2px solid transparent;background:none}
+.swcard.on{border-color:var(--gold)}
+.colorpick{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+.colorpick input{width:40px;height:34px;border:none;background:none;padding:0;cursor:pointer}
+.preview{display:flex;gap:10px;align-items:center;justify-content:center;padding:14px;border-radius:12px;margin:8px 0 2px;
+  background:radial-gradient(120% 120% at 50% 30%,var(--felt1),var(--felt2));--cw:52px;--ch:73px}
+.fly .flip>.card.back{transform:rotateY(180deg)}
+#disc .card.land{animation:land .3s ease}
+@keyframes land{0%{transform:scale(1.08)}100%{transform:none}}
 </style>
 </head>
 <body>
@@ -137,11 +169,11 @@ textarea.copyfb{position:absolute;left:-9999px}
   <section id="table"></section>
   <div id="lock"></div>
   <div id="msg"></div>
+  <div id="controls"></div>
   <section id="me" class="zone">
     <div class="who"><span class="dot"></span><span id="meLabel">You</span></div>
     <div id="hand"></div>
   </section>
-  <div id="controls"></div>
 </div>
 <div id="modal" hidden><div class="sheet" id="sheet"></div></div>
 
@@ -158,7 +190,9 @@ const KEY = 'honest-gin.v1';
 
 // ---------- persistence ----------
 let store = load() || {};
-const settings = Object.assign({difficulty:'normal', target:100, fourColor:false, sort:'melds'}, store.settings);
+const settings = Object.assign({difficulty:'normal', target:100, fourColor:false, sort:'suit',
+  speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
+if (settings.sort!=='suit' && settings.sort!=='rank') settings.sort = 'suit';
 const stats = Object.assign({games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0, draws:0, gins:0, aiGins:0,
   undercuts:0, aiUndercuts:0, startSum:[0,0], startN:0, firstDrawMelds:[0,0]}, store.stats);
 let history = store.history || [];
@@ -194,6 +228,103 @@ function size(){
   return cw;
 }
 
+// ---------- appearance ----------
+const TABLES = { green:['#1d5c45','#0b2e22','Green felt'], blue:['#1f4e79','#0b1f33','Blue felt'], burgundy:['#6b2233','#2a0c14','Burgundy'],
+  teal:['#146b6b','#062b2b','Teal'], purple:['#4b2d6b','#1a0f29','Purple'], charcoal:['#3a3f44','#141618','Charcoal'], wood:['#7a5333','#3a2414','Walnut'] };
+const BACKS = { burgundy:['#7a1f2b','rgba(255,215,140,.2)','#fbf8f1','Burgundy'], navy:['#1d3461','rgba(170,200,255,.22)','#fbf8f1','Navy'],
+  forest:['#1f5136','rgba(210,240,200,.2)','#fbf8f1','Forest'], noir:['#141414','rgba(227,181,79,.42)','#e3b54f','Black & gold'],
+  scarlet:['#b3261e','rgba(255,255,255,.22)','#ffffff','Scarlet'], royal:['#4a2a7a','rgba(230,200,255,.22)','#fbf8f1','Royal'] };
+const FACES = { classic:['#fbf8f1','Classic'], modern:['#ffffff','Modern'], jumbo:['#ffffff','Jumbo'], vintage:['#f2e6cc','Vintage'] };
+const PATTERNS = { lattice:'Lattice', dots:'Dots', stripes:'Stripes', plain:'Framed' };
+const SPEEDS = { off:0, fast:0.55, normal:1, slow:1.7 };
+function shade(hex, f){ // f<1 darkens
+  const n = parseInt(hex.slice(1),16), c = [n>>16, (n>>8)&255, n&255].map(v=>Math.max(0,Math.min(255,Math.round(v*f))));
+  return '#' + c.map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function hexToRgba(hex, a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
+function applyTheme(){
+  const root = document.documentElement.style;
+  const [f1, f2] = settings.table==='custom' ? [settings.tableCustom, shade(settings.tableCustom, .42)] : (TABLES[settings.table]||TABLES.green);
+  root.setProperty('--felt1', f1); root.setProperty('--felt2', f2);
+  let b1, b2, rim;
+  if (settings.back==='custom'){ b1 = settings.backCustom; b2 = 'rgba(255,255,255,.22)'; rim = '#fbf8f1'; }
+  else [b1, b2, rim] = BACKS[settings.back] || BACKS.burgundy;
+  root.setProperty('--back1', b1); root.setProperty('--back2', b2); root.setProperty('--backrim', rim);
+  root.setProperty('--card', (FACES[settings.face]||FACES.classic)[0]);
+  const cl = document.body.classList;
+  [...cl].filter(c=>/^(face|back)-/.test(c)).forEach(c=>cl.remove(c));
+  cl.add('face-' + settings.face, 'back-' + settings.backPattern);
+  cl.toggle('four', !!settings.fourColor);
+  const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = f2;
+}
+const speed = () => SPEEDS[settings.speed] ?? 1;
+
+// ---------- animation ----------
+const MOVE_MS = 460;
+let busyUntil = 0, dealUntil = 0;
+const reduceMotion = (()=>{ try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } })();
+const rectOf = el => el ? el.getBoundingClientRect() : null;
+const discTopEl = () => $('#disc .card:not(.under)');
+const handCardEl = id => document.querySelector(`#hand .card[data-id="${id}"]`);
+const oppBacks = () => [...document.querySelectorAll('#opp .backs .card')];
+function markBusy(ms){ busyUntil = Math.max(busyUntil, Date.now() + ms); }
+// Fly a card from a screen rectangle to an element. faces: 'up' | 'down' at start and end (flips in the air).
+function fly(from, toEl, id, startFace, endFace, dur = MOVE_MS, delay = 0){
+  if (!from || !toEl || reduceMotion || !toEl.animate || !speed()) return;
+  dur *= speed(); delay *= speed();
+  const to = toEl.getBoundingClientRect();
+  if (!to.width) return;
+  const f = document.createElement('div');
+  f.className = 'fly';
+  f.style.cssText = `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px;--cw:${to.width}px;--ch:${to.height}px`;
+  f.innerHTML = `<div class="flip">${id ? cardHTML(id) : ''}${backHTML()}</div>`;
+  document.body.appendChild(f);
+  toEl.style.visibility = 'hidden';
+  const dx = from.left - to.left, dy = from.top - to.top, sx = from.width / to.width, sy = from.height / to.height;
+  const ease = 'cubic-bezier(.25,.75,.3,1)';
+  const a = f.animate([
+    { transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})` },
+    { transform: `translate(${dx*0.45}px,${dy*0.45 - 18}px) scale(${(sx+1)/2*1.06},${(sy+1)/2*1.06})`, offset: 0.55 },
+    { transform: 'none' }], { duration: dur, delay, easing: ease, fill: 'both' });
+  const rot = x => x === 'down' ? 180 : 0;
+  f.firstChild.animate([{ transform: `rotateY(${rot(startFace)}deg)` }, { transform: `rotateY(${rot(endFace)}deg)` }],
+    { duration: dur * 0.8, delay: delay + dur * 0.1, easing: 'ease-in-out', fill: 'both' });
+  const done = () => { toEl.style.visibility = ''; f.remove(); if (toEl.parentNode && toEl.closest('#disc')) { toEl.classList.remove('land'); void toEl.offsetWidth; toEl.classList.add('land'); } };
+  a.onfinish = done; a.oncancel = done;
+  markBusy(dur + delay);
+}
+// Smoothly slide hand cards from where they were to where they are now.
+function slideHand(prev){
+  if (reduceMotion || !speed()) return;
+  document.querySelectorAll('#hand .card').forEach(el => {
+    const p = prev[el.dataset.id]; if (p == null || !el.animate) return;
+    const dx = p - el.getBoundingClientRect().left;
+    if (Math.abs(dx) < 1) return;
+    const lift = el.classList.contains('sel') ? ' translateY(-14px)' : '';
+    el.animate([{ transform: `translateX(${dx}px)${lift}` }, { transform: `none${lift ? lift : ''}`.replace('none ', '') }],
+      { duration: 280 * speed(), easing: 'cubic-bezier(.25,.75,.3,1)' });
+  });
+}
+function handPositions(){
+  const m = {}; document.querySelectorAll('#hand .card').forEach(el => m[el.dataset.id] = el.getBoundingClientRect().left); return m;
+}
+// Deal animation: cards leave the stock one at a time, alternating, like a real deal.
+function dealAnim(){
+  if (reduceMotion || !speed()) return;
+  const h = g.hand, from = rectOf($('#stock')), nd = 1 - g.dealer, backs = oppBacks();
+  if (!from) return;
+  let oppI = 0, k = 0;
+  const step = 55, dur = 340;
+  for (let i = 0; i < 10; i++) for (const p of [nd, g.dealer]) {
+    const id = h.deck[k];
+    if (p === 0) fly(from, handCardEl(id), id, 'down', 'up', dur, k * step);
+    else fly(from, backs[oppI++], null, 'down', 'down', dur, k * step);
+    k++;
+  }
+  fly(from, discTopEl(), h.discard[0], 'down', 'up', dur, k * step);
+  dealUntil = Date.now() + (k * step + dur) * speed();
+}
+
 // ---------- game flow ----------
 function newGame(){
   clearTimeout(aiTimer);
@@ -205,24 +336,31 @@ function startHand(){
   selected = null; freshId = null; oppText = ''; errText='';
   const h = g.hand;
   stats.startSum[0] += h.startDw[0]; stats.startSum[1] += h.startDw[1]; stats.startN++;
-  save(); render(); maybeAI();
+  save(); render(); dealAnim(); maybeAI();
 }
-function act(fn){
+// Runs a rule action, re-renders, then plays the animation for it (anim gets called after render).
+function act(fn, anim){
   const err = fn();
   if (err){ errText = err; render(); return false; }
   errText = '';
-  save(); render();
-  if (g.hand.phase==='over') return setTimeout(handOver, 450), true;
+  const prev = handPositions();
+  save(); render(); slideHand(prev);
+  if (anim) anim();
+  if (g.hand.phase==='over') return setTimeout(handOver, Math.max(450, busyUntil - Date.now() + 250)), true;
   maybeAI(); return true;
 }
 function maybeAI(){
   clearTimeout(aiTimer);
   const h = g.hand;
   if (!h || h.phase==='over' || h.turn!==1) return;
-  aiTimer = setTimeout(stepAI, h.phase==='discard' ? 750 : 650);
+  const base = (h.phase==='discard' ? 800 : 700) * Math.max(0.5, Math.min(speed() || 0.5, 1.4));
+  aiTimer = setTimeout(stepAI, Math.max(base, busyUntil - Date.now() + 350));
 }
 function stepAI(){
   const h = g.hand; if (h.phase==='over' || h.turn!==1) return;
+  // Remember where things are on screen before the move, so the card can fly from there.
+  const stockR = rectOf($('#stock')), discR = rectOf(discTopEl()), backs = oppBacks();
+  const backR = rectOf(backs[Math.floor(backs.length / 2)]);
   const out = E.aiAct(g, 1, settings.difficulty);
   switch(out.kind){
     case 'pass': oppText = `Opponent passed on the ${lbl(out.card)}.`; break;
@@ -236,7 +374,11 @@ function stepAI(){
   }
   if (out.kind==='discard' && !/drew|took/.test(oppText)) oppText = `Opponent discarded ${lbl(out.card)}.`;
   save(); render();
-  if (h.phase==='over') return setTimeout(handOver, 500);
+  const lastBack = () => oppBacks().slice(-1)[0];
+  if (out.kind==='drawStock') fly(stockR, lastBack(), null, 'down', 'down');
+  else if (out.kind==='takeDiscard' || out.kind==='takeUp') fly(discR, lastBack(), out.card, 'up', 'down');
+  else if (out.kind==='discard') fly(backR, discTopEl(), out.card, 'down', 'up');
+  if (h.phase==='over') return setTimeout(handOver, Math.max(600, busyUntil - Date.now() + 300));
   maybeAI();
 }
 function handOver(){
@@ -265,13 +407,15 @@ function handOver(){
 function onStock(){
   const h = g.hand;
   if (h.turn!==0 || h.phase!=='draw') return;
-  act(()=>E.drawStock(g,0)) && (freshId = h.lastDrawn[0], render());
+  const from = rectOf($('#stock'));
+  act(()=>E.drawStock(g,0), ()=>fly(from, handCardEl(h.lastDrawn[0]), h.lastDrawn[0], 'down', 'up'));
 }
 function onDiscardPile(){
   const h = g.hand;
   if (h.turn!==0) return;
   if (h.phase==='upcard' || (h.phase==='draw' && !h.mustStock)){
-    act(()=>E.takeDiscard(g,0)) && (freshId = h.lastDrawn[0], render());
+    const from = rectOf(discTopEl());
+    act(()=>E.takeDiscard(g,0), ()=>fly(from, handCardEl(h.lastDrawn[0]), h.lastDrawn[0], 'up', 'up'));
   } else if (h.phase==='discard' && selected){ doDiscard(selected); }
 }
 function onCard(id){
@@ -282,8 +426,8 @@ function onCard(id){
   selected = id; errText=''; render();
 }
 function doDiscard(id){
-  const c = id; selected = null; freshId = null; oppText = '';
-  act(()=>E.discardCard(g,0,c));
+  const c = id, from = rectOf(handCardEl(id)); selected = null; freshId = null; oppText = '';
+  act(()=>E.discardCard(g,0,c), ()=>fly(from, discTopEl(), c, 'up', 'up'));
 }
 function doKnock(){
   if (!selected) return;
@@ -296,7 +440,7 @@ function doPass(){ oppText=''; act(()=>E.pass(g,0)); }
 // ---------- render ----------
 function render(){
   const cw = size();
-  document.body.classList.toggle('four', !!settings.fourColor);
+  applyTheme();
   const h = g.hand;
   $('#score').innerHTML = `<span class="pill">You <b>${g.scores[0]}</b></span><span class="pill">Opp <b>${g.scores[1]}</b></span><span class="pill" title="Target">→ ${g.target}</span>`;
   // opponent
@@ -347,8 +491,7 @@ function render(){
       if (canK) ctr.push(`<button class="btn" disabled>Select a card to knock</button>`);
     }
   }
-  const nextSort = {melds:'suit', suit:'rank', rank:'melds'}[settings.sort];
-  ctr.push(`<button class="btn small" id="sortBtn">Sort: ${settings.sort}</button>`);
+  ctr.push(`<button class="btn small" id="sortBtn" title="Melds stay put; only deadwood is re-sorted">Deadwood by ${settings.sort}</button>`);
   ctr.push(`<button class="btn small" id="seenBtn">Seen cards</button>`);
   $('#controls').innerHTML = ctr.join('');
   const myHand = h.hands[0];
@@ -361,24 +504,25 @@ function render(){
 }
 function renderHand(cw){
   const h = g.hand, hand = h.hands[0];
-  let groups;
-  if (settings.sort==='melds'){
-    const a = E.best(hand);
-    const melds = a.melds.map(m=>sortCards(m,'suit'))
-      .sort((x,y)=>E.R(x[0])-E.R(y[0]));
-    groups = melds.map((m,i)=>({cards:m, col:MELDCOL[i%4]}));
-    if (a.dead.length) groups.push({cards:sortCards(a.dead,'suit'), col:null});
-  } else groups = [{cards:sortCards(hand, settings.sort), col:null}];
+  // Melds and sets always stay grouped on the left; the Sort button only reorders the deadwood.
+  const a = E.best(hand);
+  const melds = a.melds.map(m=>sortCards(m, m.every(c=>E.R(c)===E.R(m[0])) ? 'suit' : 'rank'))
+    .sort((x,y)=>E.R(x[0])-E.R(y[0]) || SUITORDER[E.S(x[0])]-SUITORDER[E.S(y[0])]);
+  const groups = melds.map((m,i)=>({cards:m, col:MELDCOL[i%4]}));
+  if (a.dead.length) groups.push({cards:sortCards(a.dead, settings.sort), col:null});
   const W = $('#hand').clientWidth || (Math.min(window.innerWidth,820)-16);
   const n = hand.length, gaps = groups.length-1;
-  let gap = cw*0.22;
-  let step = Math.min(cw*1.06, (W - cw - gaps*gap)/(n-1));
-  if (step < cw*0.42){ gap = cw*0.08; step = (W - cw - gaps*gap)/(n-1); }
+  // Prefer fully separating each group (the last card of a meld is not covered by the next group).
+  let step, gap;
+  const inner = n - 1 - gaps;
+  step = inner > 0 ? (W - cw - gaps*(cw + 8)) / inner : cw*1.06;
+  if (step >= cw*0.42){ step = Math.min(step, cw*1.06); gap = Math.max(cw*0.3, cw + 8 - step); }
+  else { gap = cw*0.3; step = (W - cw - gaps*gap)/(n-1); if (step < cw*0.36){ gap = cw*0.14; step = (W - cw - gaps*gap)/(n-1); } }
   const total = (n-1)*step + gaps*gap + cw;
   let x = Math.max(0, (W-total)/2), html = '';
   groups.forEach((gr, gi)=>{
     gr.cards.forEach((c)=>{
-      const cls = [c===selected?'sel':'', c===h.taken && h.phase==='discard' && h.turn===0 ? 'locked':'', c===freshId?'fresh':''].join(' ');
+      const cls = [c===selected?'sel':'', c===h.taken && h.phase==='discard' && h.turn===0 ? 'locked':'', ''].join(' ');
       html += cardHTML(c, cls, gr.col).replace('<div ', `<div style="left:${x.toFixed(1)}px" `);
       x += step;
     });
@@ -395,13 +539,15 @@ document.addEventListener('click', e=>{
     if (t.id==='modal') closeModal();
     return;
   }
+  const busy = Date.now() < dealUntil - 80;
+  if (busy && t.closest('#stock, #disc, #hand, #passBtn, #knockBtn, #bigGinBtn')) return;
   if (t.closest('#stock')) return onStock();
   if (t.closest('#disc')) return onDiscardPile();
   const card = t.closest('#hand .card'); if (card) return onCard(card.dataset.id);
   if (t.closest('#passBtn')) return doPass();
   if (t.closest('#knockBtn')) return doKnock();
   if (t.closest('#bigGinBtn')) return doBigGin();
-  if (t.closest('#sortBtn')){ settings.sort = {melds:'suit', suit:'rank', rank:'melds'}[settings.sort]; save(); return render(); }
+  if (t.closest('#sortBtn')){ settings.sort = settings.sort==='suit' ? 'rank' : 'suit'; save(); return render(); }
   if (t.closest('#seenBtn')) return showSeen();
   if (t.closest('#lockBtn')) return showFairness();
   if (t.closest('#menuBtn')) return showMenu();
@@ -554,7 +700,7 @@ function showMenu(){
     <h3>Opponent</h3><div class="seg">${segD}</div>
     <div class="tag" style="margin-top:6px">Easy makes mistakes. Normal plays solid basic gin. Hard also reads your pickups and discards, and knocks less in the late game. None of them can see your cards.</div>
     <h3>Play to</h3><div class="seg">${segT}</div><div class="tag" style="margin-top:6px">Applies to your next new game.</div>
-    <h3>Display</h3><div class="row"><button class="btn small" data-act="four">${settings.fourColor?'✓ ':''}Four-colour suits</button></div>
+    <h3>Look &amp; feel</h3><div class="row"><button class="btn" data-act="look">Appearance &amp; animation speed…</button></div>
     <h3>Your stats</h3>
     <table class="t">
       <tr><th></th><th>You</th><th>Opponent</th></tr>
@@ -577,10 +723,44 @@ function showMenu(){
     if (a==='new'){ closeModal(); newGame(); }
     if (a==='fair') showFairness();
     if (a==='rules') showRules();
-    if (a==='four'){ settings.fourColor=!settings.fourColor; save(); render(); showMenu(); }
+    if (a==='look') showAppearance();
     if (a==='reset'){ if (b.dataset.confirm){ Object.assign(stats,{games:0,gamesWon:0,hands:0,handsWon:0,aiHandsWon:0,draws:0,gins:0,aiGins:0,undercuts:0,aiUndercuts:0,startSum:[0,0],startN:0}); save(); showMenu(); } else { b.dataset.confirm='1'; b.textContent='Tap again to reset'; } }
     if (a==='close') closeModal();
   });
+}
+
+function showAppearance(){
+  const S = settings;
+  const seg = (key, opts) => `<div class="seg">${Object.entries(opts).map(([k,l])=>`<button data-set="${key}" data-val="${k}" class="${S[key]===k?'on':''}">${l}</button>`).join('')}</div>`;
+  const tables = Object.entries(TABLES).map(([k,[a,b,l]])=>`<button class="sw ${S.table===k?'on':''}" data-set="table" data-val="${k}" title="${l}" style="background:radial-gradient(circle at 40% 35%,${a},${b})"></button>`).join('');
+  const backs = Object.entries(BACKS).map(([k,[a,,,l]])=>`<button class="swcard ${S.back===k?'on':''}" data-set="back" data-val="${k}" title="${l}"><div class="card back" style="--back1:${a};--back2:${BACKS[k][1]};--backrim:${BACKS[k][2]}"></div></button>`).join('');
+  const prev = `<div class="preview">${cardHTML('AS')}${cardHTML('7H')}${cardHTML('QD')}${cardHTML('TC')}${backHTML()}</div>`;
+  openModal(`<h2>Appearance</h2>
+    ${prev}
+    <h3>Animation speed</h3>${seg('speed', {off:'Off', fast:'Fast', normal:'Normal', slow:'Slow'})}
+    <div class="tag" style="margin-top:6px">Also sets how long the opponent pauses between moves.</div>
+    <h3>Table</h3><div class="swatches">${tables}
+      <label class="colorpick ${S.table==='custom'?'on':''}"><input type="color" id="tableColor" value="${S.tableCustom}">Custom${S.table==='custom'?' ✓':''}</label></div>
+    <h3>Card face</h3>${seg('face', Object.fromEntries(Object.entries(FACES).map(([k,[,l]])=>[k,l])))}
+    <div class="row" style="margin-top:8px"><button class="btn small" data-act="four">${S.fourColor?'✓ ':''}Four-colour suits (♦ blue, ♣ green)</button></div>
+    <h3>Card back colour</h3><div class="swatches">${backs}
+      <label class="colorpick"><input type="color" id="backColor" value="${S.backCustom}">Custom${S.back==='custom'?' ✓':''}</label></div>
+    <h3>Card back pattern</h3>${seg('backPattern', PATTERNS)}
+    <div class="row" style="margin-top:16px"><button class="btn" data-act="reset">Reset to defaults</button><button class="btn primary" data-act="close">Done</button></div>`,
+  ev=>{
+    const b = ev.target.closest('button'); if(!b) return;
+    if (b.dataset.set){ S[b.dataset.set] = b.dataset.val; }
+    else if (b.dataset.act==='four') S.fourColor = !S.fourColor;
+    else if (b.dataset.act==='reset') Object.assign(S, {speed:'normal', table:'green', face:'classic', back:'burgundy', backPattern:'lattice', fourColor:false});
+    else if (b.dataset.act==='close'){ closeModal(); return; }
+    else return;
+    save(); render(); showAppearance();
+  });
+  const live = (id, key, mode) => { const el = document.getElementById(id); if (!el) return;
+    el.addEventListener('input', ()=>{ S[key] = el.value; S[mode[0]] = mode[1]; save(); applyTheme(); });
+    el.addEventListener('change', ()=>{ render(); showAppearance(); }); };
+  live('tableColor', 'tableCustom', ['table','custom']);
+  live('backColor', 'backCustom', ['back','custom']);
 }
 
 function showRules(){
@@ -602,6 +782,7 @@ function showRules(){
 }
 
 // ---------- boot ----------
+applyTheme();
 if (!g || !g.hand || g.over) newGame();
 else {
   render();
