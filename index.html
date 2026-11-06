@@ -239,7 +239,12 @@ const E = window.Gin;
 const $ = s => document.querySelector(s);
 const SUITORDER = {S:0,H:1,C:2,D:3};
 const MELDCOL = ['var(--m1)','var(--m2)','var(--m3)','var(--m4)'];
-const DIFF_LABEL = {easy:'Easy', normal:'Normal', hard:'Hard'};
+const DIFF_LABEL = {beginner:'Beginner', easy:'Easy', normal:'Normal', hard:'Hard'};
+const DIFF_HELP = {
+  beginner: 'Makes frequent mistakes: often throws away useful cards, misses pickups and knocks the moment it can. Wins about a third of hands against Normal.',
+  easy: 'Plays sensibly but slips now and then, misses some useful pickups and ignores what you’re collecting. Wins a little over 4 hands in 10 against Normal.',
+  normal: 'Solid play: keeps its deadwood low and avoids handing you cards you seem to be collecting.',
+  hard: 'Looks one draw ahead to give itself the best chance to knock, and avoids discards you could use. Only slightly stronger than Normal for now.' };
 const MEM_LABEL = {perfect:'Perfect memory', human:'Human memory', forgetful:'Forgetful'};
 const MEM_SHORT = {perfect:'Perfect', human:'Human', forgetful:'Forgetful'};
 const MEM_HELP = {
@@ -1015,13 +1020,13 @@ function showFairness(fromShowdown){
 }
 
 function showMenu(){
-  const segD = ['easy','normal','hard'].map(d=>`<button data-diff="${d}" class="${settings.difficulty===d?'on':''}">${DIFF_LABEL[d]}</button>`).join('');
+  const segD = ['beginner','easy','normal','hard'].map(d=>`<button data-diff="${d}" class="${settings.difficulty===d?'on':''}">${DIFF_LABEL[d]}</button>`).join('');
   const segT = [50,100,150].map(t=>`<button data-target="${t}" class="${settings.target===t?'on':''}">${t}</button>`).join('');
   const st = stats, avg = i => st.startN ? (st.startSum[i]/st.startN).toFixed(1) : '–';
   openModal(`<h2>Menu</h2>
     <div class="row" style="margin-top:8px"><button class="btn primary" data-act="new">New game</button><button class="btn" data-act="fair">Fairness</button><button class="btn" data-act="rules">Rules</button></div>
     <h3>Opponent skill</h3><div class="seg">${segD}</div>
-    <div class="tag" style="margin-top:6px"><b>Easy</b> ignores what you pick up and throw away, and makes random mistakes. <b>Normal</b> watches your pickups and discards and avoids handing you cards you seem to collect. <b>Hard</b> weighs them about twice as heavily, keeps cards that still have live partners, grabs a discard if it lets it knock at once, and knocks less in the late game. None of them can see your cards.</div>
+    <div class="tag" style="margin-top:6px"><b>${DIFF_LABEL[settings.difficulty]}:</b> ${DIFF_HELP[settings.difficulty]} None of the levels can see your cards.</div>
     <h3>Opponent memory</h3><div class="seg">${['perfect','human','forgetful'].map(k=>`<button data-mem="${k}" class="${settings.memory===k?'on':''}">${MEM_SHORT[k]}</button>`).join('')}</div>
     <div class="tag" style="margin-top:6px"><b>${MEM_SHORT[settings.memory]}:</b> ${MEM_HELP[settings.memory]} Combine any memory level with any skill level; this applies straight away.</div>
     <h3>Play to</h3><div class="seg">${segT}</div><div class="tag" style="margin-top:6px">Applies to your next new game.</div>
@@ -1123,7 +1128,7 @@ applyTheme();
 if (g && !g.log) g.log = [];
 render();
 if (!isIdle()){ if (g.hand.phase==='over'){ if (!g.hand.applied) handOver(); } else maybeAI(); }
-try { if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{}); } catch(e){}
+try { if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(()=>{}); } catch(e){}
 })();
 </script>
 </body>

@@ -230,11 +230,56 @@
     }
     return d;
   }
+  // Skill levels. noise: random error added to each discard choice; miss: chance of overlooking a useful discard;
+  // knockP: chance it knocks the moment it can; pot/dan: weight on keeping live cards / avoiding feeding you;
+  // look: look one draw ahead (Hard).
+  const LEVELS = {
+    beginner: { noise: 9, miss: 0.2, knockP: 0.85, pot: 0, dan: 0, look: false, label: 'Beginner' },
+    easy:     { noise: 3, miss: 0.2, knockP: 1, pot: 0, dan: 0, look: false, label: 'Easy' },
+    normal:   { noise: 0.5, miss: 0, knockP: 1, pot: 0.4, dan: 0.8, look: false, label: 'Normal' },
+    hard:     { noise: 0.1, miss: 0, knockP: 1, pot: 0, dan: 1.2, look: true, label: 'Hard',
+                lookW: 1, wk: 30, wg: 0, safety: 3, bigSave: 0 },
+  };
+  const lvl = view => LEVELS[view.difficulty] || LEVELS.normal;
   function knockThreshold(view) {
-    if (view.difficulty !== 'hard') return 10;
-    if (view.stockCount >= 20) return 10;
-    if (view.stockCount >= 12) return 8;
-    return 5;
+    const L = lvl(view);
+    if (!L.knockAt) return 10;
+    for (const [stock, t] of L.knockAt) if (view.stockCount >= stock) return t;
+    return 10;
+  }
+  // Hard: chance the opponent can put this card straight into a meld, worked out only from what it has seen:
+  // cards it knows are in the opponent's hand, and how many unseen cards could be there.
+  function feedChance(c, view, unseen) {
+    const known = new Set(view.oppPicked), un = new Set(unseen);
+    const hidden = Math.max(0, 10 - view.oppPicked.length), p = unseen.length ? Math.min(1, hidden / unseen.length) : 0;
+    const prob = id => known.has(id) ? 1 : un.has(id) ? p : 0;
+    const r = R(c), s = S(c), card = (rr, ss) => (rr >= 1 && rr <= 13) ? RANKS[rr - 1] + ss : null;
+    // set: at least two of the other three of this rank
+    const ps = SUITS.filter(x => x !== s).map(x => prob(card(r, x)));
+    const pNone = ps.reduce((a, q) => a * (1 - q), 1);
+    const pOne = ps.reduce((a, q, i) => a + q * ps.reduce((b, q2, j) => j === i ? b : b * (1 - q2), 1), 0);
+    const pSet = 1 - pNone - pOne;
+    // run: any pair of same-suit neighbours that makes a three-card run with it
+    let pNoRun = 1;
+    for (const [a, b] of [[-2, -1], [-1, 1], [1, 2]]) {
+      const ca = card(r + a, s), cb = card(r + b, s);
+      if (ca && cb) pNoRun *= 1 - prob(ca) * prob(cb);
+    }
+    let f = 1 - (1 - pSet) * pNoRun;
+    if (view.oppDiscarded.some(x => R(x) === r || (S(x) === s && Math.abs(R(x) - r) === 1))) f *= 0.6;
+    return f;
+  }
+  // Hard: expected deadwood after the next draw from the stock, over the cards it hasn't seen.
+  function lookAhead(rest, unseen, thr) {
+    const now = bestDw(rest);
+    let sum = 0, knock = 0, gin = 0;
+    for (const x of unseen) {
+      const a = best(rest.concat(x));
+      const after = Math.min(now, a.dead.length ? a.dw - Math.max(...a.dead.map(V)) : 0);
+      sum += after; if (after <= thr) knock++; if (after === 0) gin++;
+    }
+    const n = unseen.length || 1;
+    return { ev: unseen.length ? sum / n : now, pk: knock / n, pg: gin / n };
   }
   const rand = () => Math.random();
 
@@ -255,20 +300,29 @@
       const e = evals.find(e => e.dw === 0);
       return { card: e.c, knock: true, gin: true, reason: `Discarded ${label(e.c)} face down and went Gin.` };
     }
-    const canKnock = minDw <= 10 && (diff === 'easy' ? rand() < 0.85 : minDw <= thr);
+    const L = lvl(view);
+    const canKnock = minDw <= 10 && minDw <= thr && rand() < L.knockP;
     if (canKnock) {
       const opts = evals.filter(e => e.dw === minDw);
       const e = opts[0];
       return { card: e.c, knock: true, reason: `Knocked with ${minDw} deadwood (its rule: knock at ≤ ${thr}).` };
     }
-    let scored;
-    if (diff === 'easy') scored = evals.map(e => ({ e, s: e.dw + rand() * 9 }));
-    else if (diff === 'normal') scored = evals.map(e => ({ e, s: e.dw - 0.4 * e.pot + 0.8 * e.dan + rand() * 0.5 }));
-    else scored = evals.map(e => ({ e, s: e.dw - 0.8 * e.pot + 1.8 * e.dan + rand() * 0.2 }));
+    if (L.look) {
+      // Only look ahead for the most promising few discards (keeps it fast on phones).
+      const shortlist = evals.slice().sort((a, b) => a.dw - b.dw).slice(0, 5);
+      for (const e of shortlist) Object.assign(e, lookAhead(hand.filter(x => x !== e.c), unseen, thr));
+      for (const e of evals) if (e.ev == null) e.ev = e.dw;
+    }
+    if (L.safety) for (const e of evals) e.feed = feedChance(e.c, view, unseen);
+    const scored = evals.map(e => ({ e, s: (L.look ? (1 - L.lookW) * e.dw + L.lookW * e.ev : e.dw)
+      - L.pot * e.pot + L.dan * e.dan + (L.safety ? L.safety * e.feed : 0)
+      - (L.look ? (L.wk || 0) * (e.pk || 0) + (L.wg || 0) * (e.pg || 0) : 0) + rand() * L.noise }));
     scored.sort((a, b) => a.s - b.s);
     const e = scored[0].e;
     let why = `kept deadwood at ${e.dw}`;
-    if (diff !== 'easy') {
+    if (L.look && e.ev != null && e.ev < e.dw) why += ` (expects about ${e.ev.toFixed(1)} after its next draw)`;
+    if (L.safety && e.feed != null && evals.some(x => x.feed > e.feed + 0.15)) why += `, choosing a card you're unlikely to use`;
+    if (L.dan > 0) {
       if (e.dan < 0) why += ', and you seemed not to want that kind of card';
       else if (evals.some(x => x.dw === e.dw && x.dan > e.dan)) why += ', avoiding cards you looked like you were collecting';
     }
@@ -288,10 +342,14 @@
     const melded = bestArr && bestArr.melds.some(m => m.includes(top));
     let take = melded && bestAfter < nowDw;
     let why = take ? `${label(top)} fits a meld (deadwood ${nowDw} → ${bestAfter})` : `${label(top)} didn't help`;
-    if (!take && view.difficulty === 'hard' && bestAfter <= knockThreshold(view) && nowDw > knockThreshold(view)) {
+    const L = lvl(view);
+    if (!take && L.look && bestAfter <= knockThreshold(view) && nowDw > knockThreshold(view)) {
       take = true; why = `${label(top)} lets it knock right away`;
     }
-    if (take && view.difficulty === 'easy' && rand() < 0.2) { take = false; why = `missed that ${label(top)} would help`; }
+    if (!take && L.bigSave && nowDw - bestAfter >= L.bigSave) {
+      take = true; why = `${label(top)} cuts its deadwood from ${nowDw} to ${bestAfter}`;
+    }
+    if (take && L.miss && rand() < L.miss) { take = false; why = `missed that ${label(top)} would help`; }
     const mm = MEMORY[view.memory];
     if (take && mm && rand() < mm.miss) { take = false; why = `overlooked that ${label(top)} would help`; }
     return take ? { from: 'discard', reason: `Took ${label(top)} — ${why}.` } : { from: 'stock', reason: `Drew from the stock — ${why}.` };
@@ -452,7 +510,7 @@
   }
 
   const api = { startHand, takeDiscard, pass, drawStock, discardCard, knock, bigGin, applyResult, aiView, aiAct,
-    sha256hex, MEMORY, deckFromSeed, newSeed, freshDeck, R, S, V, SYM, RANKS, SUITS, label,
+    sha256hex, MEMORY, LEVELS, deckFromSeed, newSeed, freshDeck, R, S, V, SYM, RANKS, SUITS, label,
     findMelds, bestArrangements, best, bestDw, layOff, defenderBest, resolveKnock, BONUS,
     aiDiscard, aiDraw, aiUpcard, unseenCards };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Gin = api;

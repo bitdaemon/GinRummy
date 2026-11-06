@@ -27,8 +27,8 @@ It was built as an answer to card games that *feel* rigged, where the opponent a
 
 - **Provably fair deck.** Each deck order is locked in before the deal and revealed after the hand.
 - **An opponent that plays blind.** The computer never sees your hand or the stock.
-- **Three skill levels.** **Easy** ignores what you pick up and throw away, and makes random mistakes. **Normal** watches your pickups and discards and avoids handing you cards you seem to collect. **Hard** weighs them about twice as heavily, keeps cards that still have live partners, grabs a discard if it lets it knock at once, and knocks less in the late game.
-- **Three opponent memory levels:** Perfect, Human (the default) and Forgetful. They can be combined with any difficulty level, and the current pair is shown above the opponent's cards.
+- **Four skill levels.** **Beginner** makes frequent mistakes: it often throws away useful cards, misses pickups and knocks the moment it can. **Easy** plays sensibly but slips now and then, misses some useful pickups and ignores what you're collecting. **Normal** keeps its deadwood low and avoids handing you cards you seem to collect. **Hard** looks one draw ahead to give itself the best chance to knock, and avoids discards you could use. In simulated play against Normal, Beginner wins about 35% of hands, Easy about 44% and Hard about 52%; Hard is only slightly stronger than Normal so far.
+- **Three opponent memory levels:** Perfect, Human (the default) and Forgetful. They can be combined with any skill level, and the current pair is shown above the opponent's cards.
 - **End of hand on the table.** When someone knocks, both hands are laid out face up with melds on the left and deadwood on the right. Laid-off cards fly onto the knocker's melds, then the points fly to the score. **Hand details** shows the full breakdown, the fairness check and the opponent's reasoning.
 - **Action log.** The **Log** toggle shows every move of the current hand, by you and the opponent, newest first: draws, pickups, discards, passes, knocks and the result. Only public information is shown: the opponent's stock draws are listed without the card. The log belongs to the current hand only and is cleared when the next hand is dealt; nothing from earlier hands is kept.
 - **Opponent reasoning.** After every hand you can read why the opponent made each move.
@@ -180,7 +180,7 @@ When you first open it from a hosted address, a small **service worker** (`sw.js
 
 - **It works with no internet connection:** on a plane, on the train, or in airplane mode.
 - **It opens full-screen** from its own icon, without browser bars.
-- **It loads instantly,** because everything comes from the local cache.
+- **It stays up to date.** When you're online it fetches the latest version first, and it only uses the saved copy when there's no connection.
 - **Your game and stats are saved** on the device. Nothing is sent anywhere.
 
 The game has no server component at all. Shuffling, the opponent and scoring all run on your device, so playing offline works exactly the same as playing online.
@@ -225,7 +225,7 @@ Open <http://localhost:8000>.
 3. After a minute or two the game is live at `https://<your-username>.github.io/<repository-name>/`.
 
 ### Updating
-When you change any file, bump `VERSION` in `sw.js` (e.g. `honest-gin-v1` → `honest-gin-v2`). Installed copies then download the new version.
+The service worker loads files **network first**: when the device is online it always fetches the latest version, and only falls back to the saved copy when offline. A push to GitHub reaches installed copies the next time they're opened online, so there's nothing to bump. Changing `VERSION` in `sw.js` only clears out older saved copies.
 
 ---
 
