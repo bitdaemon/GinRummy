@@ -48,7 +48,20 @@ table.sheet tr.tot td,table.sheet tr.tot th{border-top:1px solid rgba(255,255,25
 .backs .card{width:calc(var(--cw)*.62);height:calc(var(--ch)*.62);margin-left:calc(var(--cw)*-.36)}
 .backs .card:first-child{margin-left:0}
 #seenPanel{width:100%;max-width:560px;margin:6px auto 0;cursor:pointer;padding:6px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
-#seenPanel[hidden]{display:none}
+#seenPanel[hidden],#logPanel[hidden]{display:none}
+#panels{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
+#panels>section{flex:1 1 100%}
+@media (min-width:760px){#panels>section{flex:1 1 300px}}
+#logPanel{width:100%;max-width:560px;margin:6px auto 0;padding:6px 8px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
+#logPanel .cap{font-size:10.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;margin:0 2px 4px}
+#logPanel ol{list-style:none;margin:0;padding:0;max-height:118px;overflow:auto;font-size:12.5px;line-height:1.45}
+@media (min-height:900px){#logPanel ol{max-height:170px}}
+@media (max-height:760px){#logPanel ol{max-height:96px}}
+#logPanel li{display:flex;gap:8px;padding:1px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
+#logPanel li:first-child{background:rgba(227,181,79,.12);border-radius:4px}
+#logPanel .n{color:var(--muted);min-width:20px;text-align:right;font-variant-numeric:tabular-nums}
+#logPanel .w0{color:var(--gold);font-weight:600} #logPanel .w1{color:#ff9e94;font-weight:600} #logPanel .w-1{color:var(--muted)}
+.btn.toggle.on{border-color:var(--gold);color:var(--gold)}
 #seenPanel .cap{font-size:10.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;margin:0 2px 4px}
 #seenPanel .grid{gap:2px}
 #seenPanel .cell{aspect-ratio:auto;height:22px;flex-direction:row;gap:1px;font-size:10.5px;border-radius:3px}
@@ -193,7 +206,7 @@ textarea.copyfb{position:absolute;left:-9999px}
     <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
   </header>
   <section id="opp" class="zone"></section>
-  <section id="seenPanel" hidden></section>
+  <div id="panels"><section id="seenPanel" hidden></section><section id="logPanel" hidden></section></div>
   <section id="table"></section>
   <div id="lock"></div>
   <div id="msg"></div>
@@ -226,7 +239,7 @@ const KEY = 'honest-gin.v1';
 // ---------- persistence ----------
 let store = load() || {};
 const settings = Object.assign({difficulty:'normal', target:100, fourColor:false, sort:'suit',
-  memory:'human', seenOnTable:true, speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
+  memory:'human', seenOnTable:true, logOnTable:false, speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
 if (settings.sort!=='suit' && settings.sort!=='rank') settings.sort = 'suit';
 const stats = Object.assign({byMem:{}, games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0, draws:0, gins:0, aiGins:0,
   undercuts:0, aiUndercuts:0, startSum:[0,0], startN:0, firstDrawMelds:[0,0]}, store.stats);
@@ -368,8 +381,13 @@ function newGame(){
   g = { dealer: Math.random()<0.5?0:1, scores:[0,0], handsWon:[0,0], target: settings.target, handNo:0, over:null, log:[] };
   startHand();
 }
+// Action log for the current hand only: it is part of the hand and is discarded when the next hand is dealt.
+// On short screens only one on-table panel (Seen or Log) is open at a time, so the cards stay in view.
+const shortScreen = () => window.innerHeight < 760;
+function logAct(p, text){ const h = g && g.hand; if (!h) return; (h.actLog = h.actLog || []).push({p, t:text}); }
 function startHand(){
   E.startHand(g);
+  logAct(-1, `Hand ${g.handNo} dealt by ${g.dealer===0?'you':'the opponent'}. Upcard ${lbl(g.hand.discard[0])}.`);
   selected = null; freshId = null; oppText = ''; errText='';
   const h = g.hand;
   stats.startSum[0] += h.startDw[0]; stats.startSum[1] += h.startDw[1]; stats.startN++;
@@ -410,6 +428,9 @@ function stepAI(){
     case 'bigGin': oppText = 'Opponent went Big Gin!'; break;
   }
   if (out.kind==='discard' && !/drew|took/.test(oppText)) oppText = `Opponent discarded ${lbl(out.card)}.`;
+  logAct(1, ({ pass:`passed on the upcard ${lbl(out.card||'')}`, takeUp:`took the upcard ${lbl(out.card||'')}`,
+    takeDiscard:`took ${lbl(out.card||'')} from the discard pile`, drawStock:'drew from the stock', discard:`discarded ${lbl(out.card||'')}`,
+    knock:'knocked', gin:'went Gin', bigGin:'went Big Gin' })[out.kind]);
   save(); render();
   const lastBack = () => oppBacks().slice(-1)[0];
   if (out.kind==='drawStock') fly(stockR, lastBack(), null, 'down', 'down');
@@ -437,6 +458,8 @@ function handOver(){
     history = history.slice(0, 40);
     g.log = g.log || [];
     g.log.push({ n:g.handNo, type:r.type, w:r.winnerP, k:r.knockerP, pts:r.points||0 });
+    logAct(-1, r.type==='draw' ? 'Dead hand: the stock ran down to two cards. No score.'
+      : `${r.winnerP===0?'You':'Opponent'} +${r.points} (${{gin:'gin', bigGin:'big gin', knock:'knock', undercut:'undercut'}[r.type]}).`);
     const fin = E.applyResult(g);
     if (fin){ stats.games++; if (fin.winner===0) stats.gamesWon++; const bm = memStats(); bm.games++; if (fin.winner===0) bm.gamesWon++; }
     save();
@@ -449,14 +472,15 @@ function onStock(){
   const h = g.hand;
   if (h.turn!==0 || h.phase!=='draw') return;
   const from = rectOf($('#stock'));
-  act(()=>E.drawStock(g,0), ()=>fly(from, handCardEl(h.lastDrawn[0]), h.lastDrawn[0], 'down', 'up'));
+  act(()=>{ const e = E.drawStock(g,0); if (!e) logAct(0, `drew ${lbl(h.lastDrawn[0])} from the stock`); return e; }, ()=>fly(from, handCardEl(h.lastDrawn[0]), h.lastDrawn[0], 'down', 'up'));
 }
 function onDiscardPile(){
   const h = g.hand;
   if (h.turn!==0) return;
   if (h.phase==='upcard' || (h.phase==='draw' && !h.mustStock)){
     const from = rectOf(discTopEl());
-    act(()=>E.takeDiscard(g,0), ()=>fly(from, handCardEl(h.lastDrawn[0]), h.lastDrawn[0], 'up', 'up'));
+    const up = h.phase==='upcard', topC = h.discard[h.discard.length-1];
+    act(()=>{ const e = E.takeDiscard(g,0); if (!e) logAct(0, up ? `took the upcard ${lbl(topC)}` : `took ${lbl(topC)} from the discard pile`); return e; }, ()=>fly(from, handCardEl(h.lastDrawn[0]), h.lastDrawn[0], 'up', 'up'));
   } else if (h.phase==='discard' && selected){ doDiscard(selected); }
 }
 function onCard(id){
@@ -468,15 +492,16 @@ function onCard(id){
 }
 function doDiscard(id){
   const c = id, from = rectOf(handCardEl(id)); selected = null; freshId = null; oppText = '';
-  act(()=>E.discardCard(g,0,c), ()=>fly(from, discTopEl(), c, 'up', 'up'));
+  act(()=>{ const e = E.discardCard(g,0,c); if (!e) logAct(0, `discarded ${lbl(c)}`); return e; }, ()=>fly(from, discTopEl(), c, 'up', 'up'));
 }
 function doKnock(){
   if (!selected) return;
   const c = selected; selected = null; freshId = null; oppText = '';
-  act(()=>E.knock(g,0,c));
+  act(()=>{ const e = E.knock(g,0,c); if (!e) logAct(0, g.hand.result && g.hand.result.knocker.dw===0 ? `went Gin, discarding ${lbl(c)} face down` : `knocked, discarding ${lbl(c)} face down`); return e; });
 }
-function doBigGin(){ selected=null; act(()=>E.bigGin(g,0)); }
-function doPass(){ oppText=''; act(()=>E.pass(g,0)); }
+function doBigGin(){ selected=null; act(()=>{ const e = E.bigGin(g,0); if (!e) logAct(0, 'went Big Gin'); return e; }); }
+function doPass(){ oppText=''; const up = g.hand.discard[g.hand.discard.length-1];
+  act(()=>{ const e = E.pass(g,0); if (!e) logAct(0, `passed on the upcard ${lbl(up)}`); return e; }); }
 
 // ---------- score sheet ----------
 const isIdle = () => !g || !g.hand || !!(g.over && g.overSeen);
@@ -509,7 +534,7 @@ function renderHeader(override){
   $('#score').innerHTML = `<span class="pill">You <b>${sc[0]}</b></span><span class="pill">Opp <b>${sc[1]}</b></span><span class="pill" title="Target">→ ${tgt}</span><span class="sheet-ico" title="Score sheet">📋</span>`;
 }
 function renderIdle(){
-  renderSeenPanel(false);
+  renderSeenPanel(false); renderLogPanel(false);
   size(); applyTheme(); renderHeader();
   $('#opp').className = 'zone';
   $('#opp').innerHTML = `<div class="who"><span class="dot"></span>${oppTitle()}</div><div class="backs"></div>`;
@@ -539,7 +564,7 @@ function render(){
   const h = g.hand;
   if (h.phase==='over' && (h.revealed || reveal)) return renderReveal(cw);
   renderHeader();
-  renderSeenPanel(!!settings.seenOnTable);
+  renderSeenPanel(!!settings.seenOnTable); renderLogPanel(!!settings.logOnTable);
   // opponent
   const oppActive = h.turn===1 && h.phase!=='over';
   $('#opp').className = 'zone' + (oppActive?' active':'');
@@ -588,8 +613,9 @@ function render(){
       if (canK) ctr.push(`<button class="btn" disabled>Select a card to knock</button>`);
     }
   }
-  ctr.push(`<button class="btn small" id="sortBtn" title="Melds stay put; only deadwood is re-sorted">Deadwood by ${settings.sort}</button>`);
-  ctr.push(`<button class="btn small" id="seenBtn">${settings.seenOnTable ? 'Hide seen cards' : 'Show seen cards'}</button>`);
+  ctr.push(`<button class="btn small" id="sortBtn" title="Melds stay put; only deadwood is re-sorted">Sort: ${settings.sort}</button>`);
+  ctr.push(`<button class="btn small toggle ${settings.seenOnTable?'on':''}" id="seenBtn" title="Show or hide the seen-cards chart">Seen</button>`);
+  ctr.push(`<button class="btn small toggle ${settings.logOnTable?'on':''}" id="logBtn" title="Show or hide the action log for this hand">Log</button>`);
   $('#controls').innerHTML = ctr.join('');
   const myHand = h.hands[0];
   let dwTxt;
@@ -657,7 +683,7 @@ function revealRows(stage){
   return rows;
 }
 function renderReveal(cw){
-  renderSeenPanel(false);
+  renderSeenPanel(false); renderLogPanel(!!settings.logOnTable);
   const h = g.hand, r = h.result, stage = reveal ? reveal.stage : 3;
   const rows = revealRows(stage);
   const showScores = stage >= 3;
@@ -696,7 +722,7 @@ function renderReveal(cw){
   }
   $('#msg').innerHTML = `${m}<span class="sub">${sub}</span>`;
   $('#controls').innerHTML = reveal ? '' :
-    `<button class="btn small" id="detailsBtn">Hand details</button>` +
+    `<button class="btn small toggle ${settings.logOnTable?'on':''}" id="logBtn">Log</button><button class="btn small" id="detailsBtn">Hand details</button>` +
     (g.over ? `<button class="btn primary" id="finalBtn">Final result</button>` : `<button class="btn primary" id="nextBtn">Next hand</button>`);
 }
 const anyCardEl = id => document.querySelector(`#hand .card[data-id="${id}"], #oppHand .card[data-id="${id}"]`);
@@ -762,6 +788,7 @@ document.addEventListener('click', e=>{
   if (g.hand.phase==='over'){
     if (t.closest('#nextBtn')) return startHand();
     if (t.closest('#detailsBtn')) return showShowdown();
+    if (t.closest('#logBtn')){ settings.logOnTable = !settings.logOnTable; if (settings.logOnTable && shortScreen()) settings.seenOnTable = false; save(); return render(); }
     if (t.closest('#lockBtn')) return showFairness();
     return;
   }
@@ -774,8 +801,9 @@ document.addEventListener('click', e=>{
   if (t.closest('#knockBtn')) return doKnock();
   if (t.closest('#bigGinBtn')) return doBigGin();
   if (t.closest('#sortBtn')){ settings.sort = settings.sort==='suit' ? 'rank' : 'suit'; save(); return render(); }
-  if (t.closest('#seenBtn')){ settings.seenOnTable = !settings.seenOnTable; save(); return render(); }
+  if (t.closest('#seenBtn')){ settings.seenOnTable = !settings.seenOnTable; if (settings.seenOnTable && shortScreen()) settings.logOnTable = false; save(); return render(); }
   if (t.closest('#seenPanel')) return showSeen();
+  if (t.closest('#logBtn')){ settings.logOnTable = !settings.logOnTable; if (settings.logOnTable && shortScreen()) settings.seenOnTable = false; save(); return render(); }
   if (t.closest('#lockBtn')) return showFairness();
   if (t.closest('#menuBtn')) return showMenu();
   if (!t.closest('.btn') && selected && g.hand.phase==='discard'){ selected=null; render(); }
@@ -882,6 +910,15 @@ function seenGridHTML(){
     grid += `<div class="cell ${cls} ${(s==='H'||s==='D')?'r':''}" title="${lbl(id)}">${r==='T'?'10':r}<span>${E.SYM[s]}</span></div>`;
   }
   return `<div class="grid">${grid}</div>`;
+}
+function renderLogPanel(show){
+  const el = $('#logPanel');
+  el.hidden = !show;
+  if (!show){ el.innerHTML = ''; return; }
+  const log = (g.hand.actLog || []);
+  const who = p => p===0 ? '<span class="w0">You</span>' : p===1 ? '<span class="w1">Opp</span>' : '<span class="w-1">—</span>';
+  const items = log.map((e,i)=>`<li><span class="n">${i+1}</span>${who(e.p)}<span>${esc(e.t)}</span></li>`).reverse().join('');
+  el.innerHTML = `<div class="cap"><span>Action log · this hand</span><span>${log.length} ${log.length===1?'move':'moves'} · newest first</span></div><ol>${items}</ol>`;
 }
 function renderSeenPanel(show){
   const el = $('#seenPanel');
