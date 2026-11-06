@@ -28,6 +28,7 @@ It was built as an answer to card games that *feel* rigged, where the opponent a
 - **Provably fair deck.** Each deck order is locked in before the deal and revealed after the hand.
 - **An opponent that plays blind.** The computer never sees your hand or the stock.
 - **Three difficulty levels:** Easy, Normal and Hard.
+- **End of hand on the table.** When someone knocks, both hands are laid out face up with melds on the left and deadwood on the right. Laid-off cards fly onto the knocker's melds, then the points fly to the score. **Hand details** shows the full breakdown, the fairness check and the opponent's reasoning.
 - **Opponent reasoning.** After every hand you can read why the opponent made each move.
 - **Seen-cards chart.** It shows you exactly the information the opponent has: the discard pile and the cards you've picked up from it.
 - **Automatic meld detection.** Your hand is grouped into melds, and your deadwood is counted live.
@@ -132,6 +133,8 @@ You can't discard the same card you just picked up from the discard pile.
 
 ### Laying off
 When you knock (without gin), your opponent may **lay off** their deadwood cards onto your melds to reduce their count. For example, they can add 8♣ to your 5♣ 6♣ 7♣, or the fourth 9 to your three 9s. No laying off is allowed against Gin or Big Gin.
+
+Only the defender lays off, never the knocker, and it happens **before** the defender's deadwood is counted. That's how an undercut can happen: laying off can bring the defender's deadwood down to the knocker's or below. The game picks the defender's best arrangement of melds and layoffs automatically.
 
 ### Scoring a hand
 | Result | Points |

@@ -144,6 +144,16 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--c)}
 pre.code{background:#0b1813;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px;overflow:auto;font-size:11.5px;max-height:220px}
 textarea.copyfb{position:absolute;left:-9999px}
+/* End-of-hand reveal on the table */
+#oppHand{position:relative;width:100%}
+#oppHand .card{position:absolute;top:4px}
+#oppHand .card.laid,#hand .card.laid{box-shadow:0 0 0 2px var(--m2),0 3px 8px rgba(0,0,0,.35)}
+.who b.dw{color:var(--ink);font-weight:700}
+.pop{position:fixed;z-index:45;pointer-events:none;font:700 30px Georgia,serif;color:var(--gold);text-shadow:0 2px 10px rgba(0,0,0,.6);white-space:nowrap}
+.pill.bump{animation:bump .5s ease}
+@keyframes bump{40%{transform:scale(1.18);background:rgba(227,181,79,.35)}}
+#msg .verdict{font-size:19px}
+#msg .verdict b{color:var(--gold)}
 /* Flying cards */
 .fly{position:fixed;z-index:40;pointer-events:none;perspective:700px;will-change:transform}
 .fly .flip{position:relative;width:100%;height:100%;transform-style:preserve-3d}
@@ -390,6 +400,7 @@ function handOver(){
   const h = g.hand;
   if (!h.applied){
     h.applied = true;
+    h.prevScores = g.scores.slice();
     const r = h.result;
     stats.hands++;
     if (r.type==='draw') stats.draws++;
@@ -405,9 +416,9 @@ function handOver(){
     g.log.push({ n:g.handNo, type:r.type, w:r.winnerP, k:r.knockerP, pts:r.points||0 });
     const fin = E.applyResult(g);
     if (fin){ stats.games++; if (fin.winner===0) stats.gamesWon++; }
-    save(); render();
+    save();
   }
-  showShowdown();
+  startReveal();
 }
 
 // ---------- human actions ----------
@@ -445,7 +456,7 @@ function doBigGin(){ selected=null; act(()=>E.bigGin(g,0)); }
 function doPass(){ oppText=''; act(()=>E.pass(g,0)); }
 
 // ---------- score sheet ----------
-const isIdle = () => !g || !g.hand || !!g.over;
+const isIdle = () => !g || !g.hand || !!(g.over && g.overSeen);
 function resultLabel(e){
   const who = p => p===0 ? 'You' : 'Opponent';
   if (e.type==='draw') return 'Dead hand';
@@ -470,8 +481,8 @@ function showScoreSheet(){
     <div class="row" style="margin-top:14px"><button class="btn" data-act="close">Close</button></div>`,
     ev=>{ if (ev.target.closest('[data-act=close]')) closeModal(); });
 }
-function renderHeader(){
-  const sc = g ? g.scores : [0,0], tgt = g ? g.target : settings.target;
+function renderHeader(override){
+  const sc = override || (g ? g.scores : [0,0]), tgt = g ? g.target : settings.target;
   $('#score').innerHTML = `<span class="pill">You <b>${sc[0]}</b></span><span class="pill">Opp <b>${sc[1]}</b></span><span class="pill" title="Target">→ ${tgt}</span><span class="sheet-ico" title="Score sheet">📋</span>`;
 }
 function renderIdle(){
@@ -502,6 +513,7 @@ function render(){
   const cw = size();
   applyTheme();
   const h = g.hand;
+  if (h.phase==='over' && (h.revealed || reveal)) return renderReveal(cw);
   renderHeader();
   // opponent
   const oppActive = h.turn===1 && h.phase!=='over';
@@ -519,7 +531,7 @@ function render(){
   $('#lock').innerHTML = `<button id="lockBtn">🔒 Deck locked before deal · <code>${h.commit.slice(0,12)}…</code></button>`;
   // message
   let m = '', sub = '';
-  if (h.phase==='over') m = 'Hand over.';
+  if (h.phase==='over') m = oppText || 'Hand over.';
   else if (h.turn===1) { m = oppText || 'Opponent is thinking…'; sub = 'Opponent’s turn'; }
   else {
     if (oppText) sub = oppText;
@@ -562,34 +574,151 @@ function render(){
   } else dwTxt = `deadwood ${E.bestDw(myHand)}`;
   $('#meLabel').textContent = `You${g.dealer===0?' · dealer':''} · ${dwTxt}`;
 }
+const meldSort = m => sortCards(m, m.every(c=>E.R(c)===E.R(m[0])) ? 'suit' : 'rank');
+function meldGroups(melds, dead){
+  const ms = melds.map(meldSort).sort((x,y)=>E.R(x[0])-E.R(y[0]) || SUITORDER[E.S(x[0])]-SUITORDER[E.S(y[0])]);
+  const groups = ms.map((m,i)=>({cards:m, col:MELDCOL[i%4]}));
+  if (dead.length) groups.push({cards:sortCards(dead, settings.sort), col:null});
+  return groups;
+}
 function renderHand(cw){
   const h = g.hand, hand = h.hands[0];
   // Melds and sets always stay grouped on the left; the Sort button only reorders the deadwood.
   const a = E.best(hand);
-  const melds = a.melds.map(m=>sortCards(m, m.every(c=>E.R(c)===E.R(m[0])) ? 'suit' : 'rank'))
-    .sort((x,y)=>E.R(x[0])-E.R(y[0]) || SUITORDER[E.S(x[0])]-SUITORDER[E.S(y[0])]);
-  const groups = melds.map((m,i)=>({cards:m, col:MELDCOL[i%4]}));
-  if (a.dead.length) groups.push({cards:sortCards(a.dead, settings.sort), col:null});
-  const W = $('#hand').clientWidth || (Math.min(window.innerWidth,820)-16);
-  const n = hand.length, gaps = groups.length-1;
+  layoutRow($('#hand'), meldGroups(a.melds, a.dead), cw, c=>[c===selected?'sel':'', c===h.taken && h.phase==='discard' && h.turn===0 ? 'locked':''].join(' '));
+  freshId = null;
+}
+// Lays out groups of cards in one row: melds left, deadwood right, each group separated when space allows.
+function layoutRow(el, groups, cw, clsFor = ()=>'', top = null){
+  const W = el.clientWidth || (Math.min(window.innerWidth,820)-16);
+  const n = groups.reduce((k,gr)=>k+gr.cards.length, 0), gaps = groups.length-1;
+  if (!n){ el.innerHTML=''; return; }
   // Prefer fully separating each group (the last card of a meld is not covered by the next group).
   let step, gap;
   const inner = n - 1 - gaps;
   step = inner > 0 ? (W - cw - gaps*(cw + 8)) / inner : cw*1.06;
   if (step >= cw*0.42){ step = Math.min(step, cw*1.06); gap = Math.max(cw*0.3, cw + 8 - step); }
   else { gap = cw*0.3; step = (W - cw - gaps*gap)/(n-1); if (step < cw*0.36){ gap = cw*0.14; step = (W - cw - gaps*gap)/(n-1); } }
+  if (n===1) step = 0;
+  if (n > 1 && (n-1)*step + gaps*gap + cw > W) step = Math.max(cw*0.3, (W - cw - gaps*gap)/(n-1));
   const total = (n-1)*step + gaps*gap + cw;
   let x = Math.max(0, (W-total)/2), html = '';
-  groups.forEach((gr, gi)=>{
+  groups.forEach((gr)=>{
     gr.cards.forEach((c)=>{
-      const cls = [c===selected?'sel':'', c===h.taken && h.phase==='discard' && h.turn===0 ? 'locked':'', ''].join(' ');
-      html += cardHTML(c, cls, gr.col).replace('<div ', `<div style="left:${x.toFixed(1)}px" `);
+      html += cardHTML(c, clsFor(c), gr.col).replace('<div ', `<div style="left:${x.toFixed(1)}px${top!=null?';top:'+top+'px':''}" `);
       x += step;
     });
     x += gap;
   });
-  $('#hand').innerHTML = html;
-  freshId = null;
+  el.innerHTML = html;
+}
+
+// ---------- end of hand: reveal on the table ----------
+let reveal = null; // {stage:1|2|3} while the end-of-hand animation runs
+const name = p => p===0 ? 'You' : 'Opponent';
+const sumV = cards => cards.reduce((t,c)=>t+E.V(c),0);
+// Arrangement of each player's cards at a given stage. Stage 1: before layoffs, 2+: after.
+function revealRows(stage){
+  const h = g.hand, r = h.result, rows = [null, null];
+  if (r.type==='draw'){
+    for (const p of [0,1]){ const a = E.best(h.hands[p]); rows[p] = {groups: meldGroups(a.melds, a.dead), dw: a.dw, laid: new Set()}; }
+    return rows;
+  }
+  const kp = r.knockerP, dp = 1-kp, laid = r.defender.laid || [], after = stage >= 2;
+  const kMelds = r.knocker.melds.map((m,i)=> after ? m.concat(laid.filter(l=>l.meld===i).map(l=>l.card)) : m);
+  rows[kp] = {groups: meldGroups(kMelds, r.knocker.dead), dw: r.knocker.dw, laid: new Set(after ? laid.map(l=>l.card) : [])};
+  const dDead = after ? r.defender.dead : r.defender.dead.concat(laid.map(l=>l.card));
+  rows[dp] = {groups: meldGroups(r.defender.melds, dDead), dw: after ? r.defender.dw : sumV(dDead), laid: new Set()};
+  return rows;
+}
+function renderReveal(cw){
+  const h = g.hand, r = h.result, stage = reveal ? reveal.stage : 3;
+  const rows = revealRows(stage);
+  const showScores = stage >= 3;
+  renderHeader(showScores ? null : h.prevScores);
+  const ocw = Math.round(cw*0.82), och = Math.round(ocw*1.4);
+  const kp = r.type==='draw' ? -1 : r.knockerP;
+  const tag = p => r.type==='draw' ? '' : p===kp ? ({gin:' · gin', bigGin:' · big gin'}[r.type] || ' · knocked') : '';
+  $('#opp').className = 'zone';
+  $('#opp').innerHTML = `<div class="who"><span class="dot"></span>Opponent${tag(1)} · deadwood <b class="dw">${rows[1].dw}</b></div>
+    <div id="oppHand" style="--cw:${ocw}px;--ch:${och}px;height:${och+10}px"></div>`;
+  layoutRow($('#oppHand'), rows[1].groups, ocw, c=>rows[1].laid.has(c)?'laid':'');
+  // table stays as it was
+  const top = h.discard[h.discard.length-1], under = h.discard[h.discard.length-2];
+  $('#table').innerHTML = `
+    <div class="pile"><div class="pilebox" id="stock">${h.stock.length?backHTML():''}<span class="count">${h.stock.length}</span></div><div class="lbl">Stock</div></div>
+    <div class="pile"><div class="pilebox" id="disc">${under?cardHTML(under,'under'):''}${top?cardHTML(top):''}</div><div class="lbl">Discard</div></div>`;
+  $('#lock').innerHTML = `<button id="lockBtn">🔒 Deck locked before deal · <code>${h.commit.slice(0,12)}…</code></button>`;
+  $('#me').className = 'zone';
+  $('#meLabel').innerHTML = `You${tag(0)} · deadwood <b class="dw">${rows[0].dw}</b>`;
+  layoutRow($('#hand'), rows[0].groups, cw, c=>rows[0].laid.has(c)?'laid':'');
+  // message
+  let m, sub = '';
+  if (r.type==='draw'){ m = '<span class="verdict">Dead hand — no score</span>'; sub = 'The stock ran down to two cards without anyone knocking.'; }
+  else {
+    const K = name(kp), D = name(1-kp), laid = (r.defender.laid||[]).map(l=>lbl(l.card));
+    const poss = (p, cap) => p===0 ? (cap?'Your':'your') : 'Opponent’s';
+    const opener = {gin:`${K} went Gin!`, bigGin:`${K} went Big Gin!`}[r.type] || `${K} knocked with ${r.knocker.dw} deadwood.`;
+    if (stage===1){ m = opener; sub = (r.type==='gin'||r.type==='bigGin') ? 'No laying off against gin.' : laid.length ? `${D} can lay off ${laid.join(' ')}…` : `${D} has nothing to lay off.`; }
+    else if (stage===2){ m = opener; sub = `${D} laid off ${laid.join(' ')} — deadwood now ${r.defender.dw}.`; }
+    else {
+      m = `<span class="verdict">${r.type==='undercut'?'Undercut! ':''}<b>${name(r.winnerP)} +${r.points}</b></span>`;
+      sub = r.type==='knock' ? `${poss(1-kp,true)} ${r.defender.dw} − ${poss(kp)} ${r.knocker.dw} deadwood = ${r.points}`
+          : r.type==='undercut' ? `${poss(1-kp,true)} ${r.defender.dw} deadwood ≤ ${poss(kp)} ${r.knocker.dw}: ${E.BONUS.undercut} bonus + ${r.knocker.dw - r.defender.dw}`
+          : `${r.type==='gin'?'Gin':'Big Gin'} bonus ${r.type==='gin'?E.BONUS.gin:E.BONUS.bigGin} + ${poss(1-kp)} ${r.defender.dw} deadwood`;
+    }
+  }
+  $('#msg').innerHTML = `${m}<span class="sub">${sub}</span>`;
+  $('#controls').innerHTML = reveal ? '' :
+    `<button class="btn small" id="detailsBtn">Hand details</button>` +
+    (g.over ? `<button class="btn primary" id="finalBtn">Final result</button>` : `<button class="btn primary" id="nextBtn">Next hand</button>`);
+}
+const anyCardEl = id => document.querySelector(`#hand .card[data-id="${id}"], #oppHand .card[data-id="${id}"]`);
+function startReveal(){
+  const h = g.hand, r = h.result;
+  if (h.revealed || reduceMotion || !speed()){ h.revealed = true; reveal = null; save(); render(); return; }
+  const backR = oppBacks().map(rectOf), prevMine = handPositions();
+  reveal = { stage: 1 }; render(); slideHand(prevMine);
+  // Opponent's cards flip over as they move into melds and deadwood.
+  document.querySelectorAll('#oppHand .card').forEach((el,i)=>{
+    const from = backR[Math.min(i, backR.length-1)] || rectOf($('#opp'));
+    fly(from, el, el.dataset.id, 'down', 'up', MOVE_MS, i*45);
+  });
+  const T = ms => ms * speed();
+  const laid = (r.defender && r.defender.laid) || [];
+  const finish = () => { reveal = null; h.revealed = true; save(); render(); };
+  setTimeout(()=>{
+    if (laid.length){
+      const from = {}; laid.forEach(l=>from[l.card] = rectOf(anyCardEl(l.card)));
+      const prev = handPositions();
+      reveal.stage = 2; render(); slideHand(prev);
+      laid.forEach((l,i)=>fly(from[l.card], anyCardEl(l.card), l.card, 'up', 'up', MOVE_MS*1.1, i*220));
+    }
+    setTimeout(()=>{
+      reveal.stage = 3; render();
+      if (r.type!=='draw') popScore(r.winnerP, r.points, h.prevScores[r.winnerP]);
+      setTimeout(finish, T(1100));
+    }, T(laid.length ? 900 + laid.length*220 : 500));
+  }, T(1300));
+}
+// "+17" rises from the message and lands on the winner's score, which counts up.
+function popScore(p, pts, from){
+  const pill = document.querySelectorAll('#score .pill')[p], msg = $('#msg .verdict') || $('#msg');
+  if (!pill || !msg) return;
+  const a = rectOf(msg), b = rectOf(pill), el = document.createElement('div');
+  el.className = 'pop'; el.textContent = '+' + pts; document.body.appendChild(el);
+  const x0 = a.left + a.width/2 - 30, y0 = a.top - 10, x1 = b.left + b.width/2 - 30, y1 = b.top;
+  const dur = 900 * speed();
+  const an = el.animate([
+    {transform:`translate(${x0}px,${y0}px) scale(.6)`, opacity:0},
+    {transform:`translate(${x0}px,${y0-30}px) scale(1.25)`, opacity:1, offset:.3},
+    {transform:`translate(${x1}px,${y1}px) scale(.5)`, opacity:.2}], {duration:dur, easing:'cubic-bezier(.3,.7,.3,1)', fill:'both'});
+  an.onfinish = () => {
+    el.remove();
+    const num = pill.querySelector('b'), to = from + pts, t0 = performance.now(), d = 450 * speed();
+    pill.classList.add('bump');
+    (function tick(t){ const k = Math.min(1, (t - t0) / d); num.textContent = Math.round(from + (to - from) * k); if (k < 1) requestAnimationFrame(tick); })(t0);
+  };
 }
 
 // ---------- events ----------
@@ -604,6 +733,12 @@ document.addEventListener('click', e=>{
   if (t.closest('#newGameBtn')) return newGame();
   if (t.closest('#finalBtn')) return showGameOver();
   if (isIdle()) return;
+  if (g.hand.phase==='over'){
+    if (t.closest('#nextBtn')) return startHand();
+    if (t.closest('#detailsBtn')) return showShowdown();
+    if (t.closest('#lockBtn')) return showFairness();
+    return;
+  }
   const busy = Date.now() < dealUntil - 80;
   if (busy && t.closest('#stock, #disc, #hand, #passBtn, #knockBtn, #bigGinBtn')) return;
   if (t.closest('#stock')) return onStock();
@@ -676,13 +811,14 @@ function showShowdown(){
     <div class="tag">Its inputs were only its own cards, the discard pile, the cards you picked up from it, and the stock count.</div></details>`;
   const s = g.scores;
   body += `<h3>Score</h3><p>You <b>${s[0]}</b> · Opponent <b>${s[1]}</b> — first to ${g.target}</p>
-    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="next">${g.over?'See final result':'Next hand'}</button></div>`;
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="next">${g.over?'Final result':'Next hand'}</button><button class="btn" data-act="close">Back to table</button></div>`;
   openModal(body, ev=>{
     const b = ev.target.closest('button'); if(!b) return;
     if (b.dataset.copy==='seed') copyText(h.seed, b);
     if (b.dataset.copy==='deck') copyText(h.deck.map(c=>c).join(' '), b);
     if (b.dataset.act==='fair') showFairness(true);
     if (b.dataset.act==='next'){ closeModal(); if (g.over) showGameOver(); else startHand(); }
+    if (b.dataset.act==='close') closeModal();
   });
 }
 
@@ -697,9 +833,10 @@ function showGameOver(){
     ${o.shutout?row('Shutout (doubled)', o.winner===0?'×2':'', o.winner===1?'×2':''):''}
     <tr><th>Total</th><th>${o.totals[0]}</th><th>${o.totals[1]}</th></tr></table>
     <div class="row" style="margin-top:14px"><button class="btn primary" data-act="new">New game</button><button class="btn" data-act="close">Close</button></div>`;
+  g.overSeen = true; save();
   openModal(body, ev=>{ const b=ev.target.closest('button'); if(!b) return;
     if (b.dataset.act==='new'){ closeModal(); newGame(); }
-    if (b.dataset.act==='close'){ closeModal(); render(); } });
+    if (b.dataset.act==='close'){ closeModal(); g.overSeen = true; save(); render(); } });
 }
 
 function showSeen(){
@@ -788,7 +925,7 @@ function showMenu(){
     if (b.dataset.target){ settings.target=+b.dataset.target; save(); return showMenu(); }
     const a = b.dataset.act;
     if (a==='new'){
-      if (!isIdle() && !b.dataset.confirm){ b.dataset.confirm='1'; b.textContent='Tap again to abandon this game'; return; }
+      if (!isIdle() && !g.over && !b.dataset.confirm){ b.dataset.confirm='1'; b.textContent='Tap again to abandon this game'; return; }
       closeModal(); newGame();
     }
     if (a==='fair') showFairness();
@@ -856,7 +993,7 @@ applyTheme();
 // A game only starts when you press New game.
 if (g && !g.log) g.log = [];
 render();
-if (!isIdle()){ if (g.hand.phase==='over') handOver(); else maybeAI(); }
+if (!isIdle()){ if (g.hand.phase==='over'){ if (!g.hand.applied) handOver(); } else maybeAI(); }
 try { if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{}); } catch(e){}
 })();
 </script>
