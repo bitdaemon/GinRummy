@@ -27,11 +27,11 @@ It was built as an answer to card games that *feel* rigged, where the opponent a
 
 - **Provably fair deck.** Each deck order is locked in before the deal and revealed after the hand.
 - **An opponent that plays blind.** The computer never sees your hand or the stock.
-- **Three difficulty levels:** Easy, Normal and Hard.
+- **Three skill levels.** **Easy** ignores what you pick up and throw away, and makes random mistakes. **Normal** watches your pickups and discards and avoids handing you cards you seem to collect. **Hard** weighs them about twice as heavily, keeps cards that still have live partners, grabs a discard if it lets it knock at once, and knocks less in the late game.
 - **Three opponent memory levels:** Perfect, Human (the default) and Forgetful. They can be combined with any difficulty level, and the current pair is shown above the opponent's cards.
 - **End of hand on the table.** When someone knocks, both hands are laid out face up with melds on the left and deadwood on the right. Laid-off cards fly onto the knocker's melds, then the points fly to the score. **Hand details** shows the full breakdown, the fairness check and the opponent's reasoning.
 - **Opponent reasoning.** After every hand you can read why the opponent made each move.
-- **Seen-cards chart.** It shows exactly what the opponent remembers right now: which discards it still recalls, which it has forgotten, which of your pickups it knows about, and anything it has misremembered.
+- **Seen-cards chart on the table.** A compact chart sits between the opponent's cards and the piles and updates after every move. Tap it for the legend, or hide it with **Hide seen cards**. It shows exactly what the opponent remembers right now: which discards it still recalls, which it has forgotten, which of your pickups it knows about, and anything it has misremembered.
 - **Automatic meld detection.** Your hand is grouped into melds, and your deadwood is counted live.
 - **Full standard scoring:** knock, gin, big gin, undercut, layoffs, box bonus, game bonus and shutout.
 - **Statistics,** including a luck tracker that compares your average starting hand with the opponent's, and results split by opponent memory level.
@@ -99,7 +99,7 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 | Big Gin | Press **Big Gin!** when all 11 cards are melded |
 | Pass on the first upcard | Press **Pass** |
 | Sort your deadwood | **Deadwood by suit / rank**. Melds and sets always stay grouped on the left; only the deadwood is re-sorted |
-| See what the opponent remembers | **Seen cards** |
+| See what the opponent remembers | The **Seen cards** chart on the table (tap it for the legend). **Hide / Show seen cards** toggles it |
 | Score sheet (every hand, running totals, hands won) | Tap the standings at the top of the screen |
 | Opponent skill and memory, settings, stats, rules | **☰** menu |
 | Table, cards, animation speed | **☰** menu → **Appearance & animation speed** |

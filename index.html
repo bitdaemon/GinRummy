@@ -47,6 +47,12 @@ table.sheet tr.tot td,table.sheet tr.tot th{border-top:1px solid rgba(255,255,25
 .backs{display:flex;justify-content:center}
 .backs .card{width:calc(var(--cw)*.62);height:calc(var(--ch)*.62);margin-left:calc(var(--cw)*-.36)}
 .backs .card:first-child{margin-left:0}
+#seenPanel{width:100%;max-width:560px;margin:6px auto 0;cursor:pointer;padding:6px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
+#seenPanel[hidden]{display:none}
+#seenPanel .cap{font-size:10.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;margin:0 2px 4px}
+#seenPanel .grid{gap:2px}
+#seenPanel .cell{aspect-ratio:auto;height:22px;flex-direction:row;gap:1px;font-size:10.5px;border-radius:3px}
+@media (min-height:900px){#seenPanel .cell{height:26px;font-size:12px}}
 #table{display:flex;justify-content:center;align-items:center;gap:calc(var(--cw)*.6);padding:14px 0 6px;flex:1;min-height:calc(var(--ch)*1.1 + 40px)}
 .pile{display:flex;flex-direction:column;align-items:center;gap:6px}
 .pile .lbl{font-size:12px;color:var(--muted)}
@@ -187,6 +193,7 @@ textarea.copyfb{position:absolute;left:-9999px}
     <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
   </header>
   <section id="opp" class="zone"></section>
+  <section id="seenPanel" hidden></section>
   <section id="table"></section>
   <div id="lock"></div>
   <div id="msg"></div>
@@ -219,7 +226,7 @@ const KEY = 'honest-gin.v1';
 // ---------- persistence ----------
 let store = load() || {};
 const settings = Object.assign({difficulty:'normal', target:100, fourColor:false, sort:'suit',
-  memory:'human', speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
+  memory:'human', seenOnTable:true, speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
 if (settings.sort!=='suit' && settings.sort!=='rank') settings.sort = 'suit';
 const stats = Object.assign({byMem:{}, games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0, draws:0, gins:0, aiGins:0,
   undercuts:0, aiUndercuts:0, startSum:[0,0], startN:0, firstDrawMelds:[0,0]}, store.stats);
@@ -502,6 +509,7 @@ function renderHeader(override){
   $('#score').innerHTML = `<span class="pill">You <b>${sc[0]}</b></span><span class="pill">Opp <b>${sc[1]}</b></span><span class="pill" title="Target">→ ${tgt}</span><span class="sheet-ico" title="Score sheet">📋</span>`;
 }
 function renderIdle(){
+  renderSeenPanel(false);
   size(); applyTheme(); renderHeader();
   $('#opp').className = 'zone';
   $('#opp').innerHTML = `<div class="who"><span class="dot"></span>${oppTitle()}</div><div class="backs"></div>`;
@@ -531,6 +539,7 @@ function render(){
   const h = g.hand;
   if (h.phase==='over' && (h.revealed || reveal)) return renderReveal(cw);
   renderHeader();
+  renderSeenPanel(!!settings.seenOnTable);
   // opponent
   const oppActive = h.turn===1 && h.phase!=='over';
   $('#opp').className = 'zone' + (oppActive?' active':'');
@@ -580,7 +589,7 @@ function render(){
     }
   }
   ctr.push(`<button class="btn small" id="sortBtn" title="Melds stay put; only deadwood is re-sorted">Deadwood by ${settings.sort}</button>`);
-  ctr.push(`<button class="btn small" id="seenBtn">Seen cards</button>`);
+  ctr.push(`<button class="btn small" id="seenBtn">${settings.seenOnTable ? 'Hide seen cards' : 'Show seen cards'}</button>`);
   $('#controls').innerHTML = ctr.join('');
   const myHand = h.hands[0];
   let dwTxt;
@@ -648,6 +657,7 @@ function revealRows(stage){
   return rows;
 }
 function renderReveal(cw){
+  renderSeenPanel(false);
   const h = g.hand, r = h.result, stage = reveal ? reveal.stage : 3;
   const rows = revealRows(stage);
   const showScores = stage >= 3;
@@ -764,7 +774,8 @@ document.addEventListener('click', e=>{
   if (t.closest('#knockBtn')) return doKnock();
   if (t.closest('#bigGinBtn')) return doBigGin();
   if (t.closest('#sortBtn')){ settings.sort = settings.sort==='suit' ? 'rank' : 'suit'; save(); return render(); }
-  if (t.closest('#seenBtn')) return showSeen();
+  if (t.closest('#seenBtn')){ settings.seenOnTable = !settings.seenOnTable; save(); return render(); }
+  if (t.closest('#seenPanel')) return showSeen();
   if (t.closest('#lockBtn')) return showFairness();
   if (t.closest('#menuBtn')) return showMenu();
   if (!t.closest('.btn') && selected && g.hand.phase==='discard'){ selected=null; render(); }
@@ -855,9 +866,9 @@ function showGameOver(){
     if (b.dataset.act==='close'){ closeModal(); g.overSeen = true; save(); render(); } });
 }
 
-function showSeen(){
+// The seen-cards grid: exactly what the opponent's code would receive right now, at the chosen memory level.
+function seenGridHTML(){
   const h = g.hand, mem = settings.memory || 'human';
-  // Exactly what the opponent's code would receive right now, at this memory level.
   const v = E.aiView(g, 1, settings.difficulty, mem);
   const mine = new Set(h.hands[0]), opp = new Set(h.picked[1]);
   const remembered = new Set(v.discardPile), forgotten = new Set(h.discard.filter(c=>!remembered.has(c)));
@@ -870,12 +881,23 @@ function showSeen(){
       : remembered.has(id) ? 'gone' : forgotten.has(id) ? 'faded' : '';
     grid += `<div class="cell ${cls} ${(s==='H'||s==='D')?'r':''}" title="${lbl(id)}">${r==='T'?'10':r}<span>${E.SYM[s]}</span></div>`;
   }
+  return `<div class="grid">${grid}</div>`;
+}
+function renderSeenPanel(show){
+  const el = $('#seenPanel');
+  el.hidden = !show;
+  if (!show){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="cap"><span>Seen cards · ${MEM_SHORT[settings.memory] || 'Human'} memory</span><span>Tap for legend</span></div>${seenGridHTML()}`;
+}
+function showSeen(){
+  const mem = settings.memory || 'human';
+  const grid = seenGridHTML();
   const intro = mem==='perfect'
     ? 'The opponent has perfect memory: it knows everything on this chart, and nothing else.'
     : `This chart shows what the opponent remembers right now (${MEM_LABEL[mem]}). Faded cells are discards it has forgotten.`;
   openModal(`<h2>Seen cards</h2>
     <p>${intro}</p>
-    <div class="grid">${grid}</div>
+    ${grid}
     <div class="lgd">
       <div><i class="cell mine">7</i>In your hand</div>
       <div><i class="cell mine known">7</i>In your hand, and the opponent knows (you took it from the pile)</div>
@@ -935,7 +957,7 @@ function showMenu(){
   openModal(`<h2>Menu</h2>
     <div class="row" style="margin-top:8px"><button class="btn primary" data-act="new">New game</button><button class="btn" data-act="fair">Fairness</button><button class="btn" data-act="rules">Rules</button></div>
     <h3>Opponent skill</h3><div class="seg">${segD}</div>
-    <div class="tag" style="margin-top:6px">Easy makes mistakes. Normal plays solid basic gin. Hard also reads your pickups and discards, and knocks less in the late game. None of them can see your cards.</div>
+    <div class="tag" style="margin-top:6px"><b>Easy</b> ignores what you pick up and throw away, and makes random mistakes. <b>Normal</b> watches your pickups and discards and avoids handing you cards you seem to collect. <b>Hard</b> weighs them about twice as heavily, keeps cards that still have live partners, grabs a discard if it lets it knock at once, and knocks less in the late game. None of them can see your cards.</div>
     <h3>Opponent memory</h3><div class="seg">${['perfect','human','forgetful'].map(k=>`<button data-mem="${k}" class="${settings.memory===k?'on':''}">${MEM_SHORT[k]}</button>`).join('')}</div>
     <div class="tag" style="margin-top:6px"><b>${MEM_SHORT[settings.memory]}:</b> ${MEM_HELP[settings.memory]} Combine any memory level with any skill level; this applies straight away.</div>
     <h3>Play to</h3><div class="seg">${segT}</div><div class="tag" style="margin-top:6px">Applies to your next new game.</div>
