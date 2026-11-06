@@ -76,6 +76,7 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 
 | Action | How |
 |---|---|
+| Start a game | Press **New game**. A game never starts by itself; when one ends, the table waits until you press it again |
 | Draw from the stock | Tap the face-down **Stock** pile |
 | Take the top discard | Tap the **Discard** pile |
 | Discard a card | Tap a card to select it, then tap it again (or tap the Discard pile) |
@@ -84,6 +85,7 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 | Pass on the first upcard | Press **Pass** |
 | Sort your deadwood | **Deadwood by suit / rank**. Melds and sets always stay grouped on the left; only the deadwood is re-sorted |
 | See what's known | **Seen cards** |
+| Score sheet (every hand, running totals, hands won) | Tap the standings at the top of the screen |
 | Settings, stats, rules | **☰** menu |
 | Table, cards, animation speed | **☰** menu → **Appearance & animation speed** |
 

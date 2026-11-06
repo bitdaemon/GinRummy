@@ -30,7 +30,12 @@ button{font:inherit;color:inherit}
 header{display:flex;align-items:center;gap:10px;padding:4px 2px 8px}
 .brand{font-family:Georgia,"Times New Roman",serif;font-size:18px;letter-spacing:.3px;white-space:nowrap}
 .brand b{color:var(--gold);font-weight:normal}
-.score{flex:1;display:flex;justify-content:center;gap:6px;font-variant-numeric:tabular-nums}
+.score{flex:1;display:flex;justify-content:center;align-items:center;gap:6px;font-variant-numeric:tabular-nums;background:none;border:none;padding:0;cursor:pointer;color:inherit;font:inherit}
+.score .sheet-ico{font-size:15px;opacity:.85}
+table.sheet td.res{text-align:left;white-space:nowrap}
+table.sheet td.run{color:var(--muted);font-size:12px}
+table.sheet tr.tot td,table.sheet tr.tot th{border-top:1px solid rgba(255,255,255,.3);font-weight:700}
+.btn.xl{font-size:17px;padding:12px 28px;min-height:48px}
 .pill{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:3px 10px;font-size:13px;white-space:nowrap}
 .pill b{font-size:15px}
 .iconbtn{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);border-radius:10px;width:38px;height:34px;font-size:18px;cursor:pointer}
@@ -162,7 +167,7 @@ textarea.copyfb{position:absolute;left:-9999px}
 <div id="app">
   <header>
     <div class="brand">Honest <b>Gin</b></div>
-    <div class="score" id="score"></div>
+    <button class="score" id="score" aria-label="Score sheet"></button>
     <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
   </header>
   <section id="opp" class="zone"></section>
@@ -328,7 +333,7 @@ function dealAnim(){
 // ---------- game flow ----------
 function newGame(){
   clearTimeout(aiTimer);
-  g = { dealer: Math.random()<0.5?0:1, scores:[0,0], handsWon:[0,0], target: settings.target, handNo:0, over:null };
+  g = { dealer: Math.random()<0.5?0:1, scores:[0,0], handsWon:[0,0], target: settings.target, handNo:0, over:null, log:[] };
   startHand();
 }
 function startHand(){
@@ -396,6 +401,8 @@ function handOver(){
     history.unshift({n:g.handNo, commit:h.commit, seed:h.seed, when:Date.now(),
       res: r.type==='draw' ? 'Dead hand' : `${r.winnerP===0?'You':'Opponent'} +${r.points} (${r.type==='bigGin'?'big gin':r.type})`});
     history = history.slice(0, 40);
+    g.log = g.log || [];
+    g.log.push({ n:g.handNo, type:r.type, w:r.winnerP, k:r.knockerP, pts:r.points||0 });
     const fin = E.applyResult(g);
     if (fin){ stats.games++; if (fin.winner===0) stats.gamesWon++; }
     save(); render();
@@ -437,12 +444,65 @@ function doKnock(){
 function doBigGin(){ selected=null; act(()=>E.bigGin(g,0)); }
 function doPass(){ oppText=''; act(()=>E.pass(g,0)); }
 
+// ---------- score sheet ----------
+const isIdle = () => !g || !g.hand || !!g.over;
+function resultLabel(e){
+  const who = p => p===0 ? 'You' : 'Opponent';
+  if (e.type==='draw') return 'Dead hand';
+  return { gin:`${who(e.k)} gin`, bigGin:`${who(e.k)} big gin`, knock:`${who(e.k)} knocked`, undercut:`${who(e.w)} undercut` }[e.type];
+}
+function scoreSheetHTML(){
+  if (!g) return '<p class="tag">No game in progress.</p>';
+  const log = g.log || [], run = [0,0];
+  const rows = log.map(e=>{
+    const scored = e.type!=='draw';
+    if (scored) run[e.w] += e.pts;
+    return `<tr><td>${e.n}</td><td class="res">${resultLabel(e)}</td><td>${scored&&e.w===0?'+'+e.pts:''}</td><td>${scored&&e.w===1?'+'+e.pts:''}</td><td class="run">${run[0]}–${run[1]}</td></tr>`;
+  }).join('');
+  return `<table class="t sheet"><tr><th>#</th><th style="text-align:left">Hand</th><th>You</th><th>Opp</th><th></th></tr>
+    ${rows || '<tr><td colspan="5" class="tag" style="text-align:left">No hands finished yet.</td></tr>'}
+    <tr class="tot"><td></td><td class="res">Total</td><td>${g.scores[0]}</td><td>${g.scores[1]}</td><td></td></tr>
+    <tr><td></td><td class="res">Hands won</td><td>${g.handsWon[0]}</td><td>${g.handsWon[1]}</td><td></td></tr></table>
+    <div class="tag" style="margin-top:6px">First to ${g.target}. Winner gets +${E.BONUS.game}, and each player +${E.BONUS.box} per hand won.</div>`;
+}
+function showScoreSheet(){
+  openModal(`<h2>Score sheet</h2>${scoreSheetHTML()}
+    <div class="row" style="margin-top:14px"><button class="btn" data-act="close">Close</button></div>`,
+    ev=>{ if (ev.target.closest('[data-act=close]')) closeModal(); });
+}
+function renderHeader(){
+  const sc = g ? g.scores : [0,0], tgt = g ? g.target : settings.target;
+  $('#score').innerHTML = `<span class="pill">You <b>${sc[0]}</b></span><span class="pill">Opp <b>${sc[1]}</b></span><span class="pill" title="Target">→ ${tgt}</span><span class="sheet-ico" title="Score sheet">📋</span>`;
+}
+function renderIdle(){
+  size(); applyTheme(); renderHeader();
+  $('#opp').className = 'zone';
+  $('#opp').innerHTML = `<div class="who"><span class="dot"></span>Opponent · ${DIFF_LABEL[settings.difficulty]}</div><div class="backs"></div>`;
+  $('#table').innerHTML = `
+    <div class="pile"><div class="pilebox" id="stock">${backHTML()}<span class="count">52</span></div><div class="lbl">Stock</div></div>
+    <div class="pile"><div class="pilebox" id="disc"></div><div class="lbl">Discard</div></div>`;
+  $('#lock').innerHTML = '';
+  let m, sub;
+  if (g && g.over){
+    const o = g.over;
+    m = `<b>${o.winner===0?'You won':'Opponent won'}</b> the game, ${o.totals[0]} to ${o.totals[1]}.`;
+    sub = 'Press New game to play again.';
+  } else { m = 'Ready when you are.'; sub = 'Press New game to deal the first hand.'; }
+  $('#msg').innerHTML = `${m}<span class="sub">${sub}</span>`;
+  $('#me').className = 'zone';
+  $('#meLabel').textContent = 'You';
+  $('#hand').innerHTML = '';
+  $('#controls').innerHTML = `<button class="btn primary xl" id="newGameBtn">New game</button>` +
+    (g && g.over ? `<button class="btn small" id="finalBtn">Final result</button>` : '');
+}
+
 // ---------- render ----------
 function render(){
+  if (isIdle()) return renderIdle();
   const cw = size();
   applyTheme();
   const h = g.hand;
-  $('#score').innerHTML = `<span class="pill">You <b>${g.scores[0]}</b></span><span class="pill">Opp <b>${g.scores[1]}</b></span><span class="pill" title="Target">→ ${g.target}</span>`;
+  renderHeader();
   // opponent
   const oppActive = h.turn===1 && h.phase!=='over';
   $('#opp').className = 'zone' + (oppActive?' active':'');
@@ -539,6 +599,11 @@ document.addEventListener('click', e=>{
     if (t.id==='modal') closeModal();
     return;
   }
+  if (t.closest('#menuBtn')) return showMenu();
+  if (t.closest('#score')) return showScoreSheet();
+  if (t.closest('#newGameBtn')) return newGame();
+  if (t.closest('#finalBtn')) return showGameOver();
+  if (isIdle()) return;
   const busy = Date.now() < dealUntil - 80;
   if (busy && t.closest('#stock, #disc, #hand, #passBtn, #knockBtn, #bigGinBtn')) return;
   if (t.closest('#stock')) return onStock();
@@ -631,8 +696,10 @@ function showGameOver(){
     ${row('Game bonus', o.winner===0?E.BONUS.game:0, o.winner===1?E.BONUS.game:0)}
     ${o.shutout?row('Shutout (doubled)', o.winner===0?'×2':'', o.winner===1?'×2':''):''}
     <tr><th>Total</th><th>${o.totals[0]}</th><th>${o.totals[1]}</th></tr></table>
-    <div class="row" style="margin-top:14px"><button class="btn primary" data-act="new">New game</button></div>`;
-  openModal(body, ev=>{ const b=ev.target.closest('button'); if(b && b.dataset.act==='new'){ closeModal(); newGame(); } });
+    <div class="row" style="margin-top:14px"><button class="btn primary" data-act="new">New game</button><button class="btn" data-act="close">Close</button></div>`;
+  openModal(body, ev=>{ const b=ev.target.closest('button'); if(!b) return;
+    if (b.dataset.act==='new'){ closeModal(); newGame(); }
+    if (b.dataset.act==='close'){ closeModal(); render(); } });
 }
 
 function showSeen(){
@@ -670,14 +737,14 @@ print("lock:", hashlib.sha256(seed.encode()).hexdigest())
 print("deck:", " ".join(deck))`;
 
 function showFairness(fromShowdown){
-  const h = g.hand;
+  const h = g && g.hand;
   const hist = history.slice(0,12).map(x=>`<tr><td>#${x.n}</td><td class="mono">${x.commit.slice(0,10)}…</td><td style="text-align:left">${esc(x.res)}</td><td><button class="btn small" data-seed="${x.seed}">Copy seed</button></td></tr>`).join('');
   openModal(`<h2>Why this game can’t be rigged</h2>
     <p><b>1. The deck is fixed before the deal.</b> Each hand starts with a random 256-bit seed from your device’s secure random generator. The full 52-card order comes from that seed, and its SHA-256 fingerprint (the “lock”) is shown before any card is dealt. Nothing can reorder the stock afterwards, so the game can’t slip the opponent a perfect card or keep the one you need away from you.</p>
     <p><b>2. The seed is revealed after every hand.</b> Run the script below on the seed and you get the same lock and the exact deck order. Cards are dealt from the start of that list: one to the non-dealer, one to the dealer, alternating, until each has 10. The 21st card is the upcard, and the stock is drawn in order after that.</p>
     <p><b>3. The opponent plays blind.</b> Its code only ever gets: its own 10–11 cards, the discard pile, the cards you picked up from the discard pile, and how many cards are left in the stock. It never sees your hand or the stock. After each hand you can read its reasoning, and the “Seen cards” chart gives you the same memory it has.</p>
     <p><b>4. Same rules for both players.</b> One set of rule functions checks every move, yours and its.</p>
-    ${h.phase!=='over'?`<h3>Current hand lock</h3><div class="mono">${h.commit}</div><div class="tag">Write down the first few characters and compare them after the hand.</div>`:''}
+    ${h && h.phase!=='over' && !g.over?`<h3>Current hand lock</h3><div class="mono">${h.commit}</div><div class="tag">Write down the first few characters and compare them after the hand.</div>`:''}
     <h3>Check it independently (Python 3)</h3>
     <pre class="code mono">${esc(PY)}</pre>
     <div class="row"><button class="btn small" data-act="copypy">Copy script</button><span class="tag">Save it as verify.py, then run: python3 verify.py &lt;seed&gt;</span></div>
@@ -720,7 +787,10 @@ function showMenu(){
     if (b.dataset.diff){ settings.difficulty=b.dataset.diff; save(); render(); return showMenu(); }
     if (b.dataset.target){ settings.target=+b.dataset.target; save(); return showMenu(); }
     const a = b.dataset.act;
-    if (a==='new'){ closeModal(); newGame(); }
+    if (a==='new'){
+      if (!isIdle() && !b.dataset.confirm){ b.dataset.confirm='1'; b.textContent='Tap again to abandon this game'; return; }
+      closeModal(); newGame();
+    }
     if (a==='fair') showFairness();
     if (a==='rules') showRules();
     if (a==='look') showAppearance();
@@ -783,11 +853,10 @@ function showRules(){
 
 // ---------- boot ----------
 applyTheme();
-if (!g || !g.hand || g.over) newGame();
-else {
-  render();
-  if (g.hand.phase==='over') handOver(); else maybeAI();
-}
+// A game only starts when you press New game.
+if (g && !g.log) g.log = [];
+render();
+if (!isIdle()){ if (g.hand.phase==='over') handOver(); else maybeAI(); }
 try { if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{}); } catch(e){}
 })();
 </script>
