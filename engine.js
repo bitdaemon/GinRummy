@@ -292,6 +292,8 @@
       take = true; why = `${label(top)} lets it knock right away`;
     }
     if (take && view.difficulty === 'easy' && rand() < 0.2) { take = false; why = `missed that ${label(top)} would help`; }
+    const mm = MEMORY[view.memory];
+    if (take && mm && rand() < mm.miss) { take = false; why = `overlooked that ${label(top)} would help`; }
     return take ? { from: 'discard', reason: `Took ${label(top)} — ${why}.` } : { from: 'stock', reason: `Drew from the stock — ${why}.` };
   }
 
@@ -309,6 +311,7 @@
     g.handNo = (g.handNo || 0) + 1;
     g.hand = { seed, commit: sha256hex(seed), deck, hands, discard, stock: deck.slice(k), turn: nd, phase: 'upcard',
       passes: 0, mustStock: false, taken: null, picked: [[], []], discards: [[], []], lastDrawn: [null, null],
+      tick: 0, when: { [deck[20]]: 0 }, pickWhen: {}, memSalt: newSeed(),
       aiLog: [], startDw: [bestDw(hands[0]), bestDw(hands[1])], result: null };
     return g.hand;
   }
@@ -322,6 +325,7 @@
     const h = g.hand, e = check(h, p, ['upcard', 'draw']); if (e) return e;
     if (h.mustStock) return 'You must draw from the stock this turn.';
     const c = h.discard.pop(); h.hands[p].push(c); h.taken = c; h.picked[p].push(c); h.lastDrawn[p] = c;
+    if (h.pickWhen) h.pickWhen[c] = h.tick || 0;
     h.phase = 'discard'; return null;
   }
   function pass(g, p) {
@@ -342,6 +346,7 @@
     if (!h.hands[p].includes(c)) return 'Card not in hand.';
     if (c === h.taken) return "You can't discard the card you just took from the discard pile.";
     removeCard(h.hands[p], c); h.discard.push(c); h.discards[p].push(c); removeCard(h.picked[p], c);
+    h.tick = (h.tick || 0) + 1; if (h.when) h.when[c] = h.tick;
     h.taken = null; h.lastDrawn[p] = null;
     if (h.stock.length <= 2) { h.phase = 'over'; h.result = { type: 'draw' }; }
     else { h.turn = 1 - p; h.phase = 'draw'; }
@@ -386,16 +391,47 @@
     return null;
   }
 
-  // The ONLY thing the AI is given. No stock order, no opponent hand.
-  function aiView(g, p, difficulty) {
-    const h = g.hand;
-    return Object.freeze({ hand: h.hands[p].slice(), discardPile: h.discard.slice(), oppPicked: h.picked[1 - p].slice(),
-      oppDiscarded: h.discards[1 - p].slice(), stockCount: h.stock.length, mustStock: h.mustStock,
-      takenFromDiscard: h.taken, difficulty });
+  // ---------- Opponent memory ----------
+  // How likely the AI still remembers a public card, by its age in turns (one turn = one discard).
+  // 'disc': buried cards in the discard pile, 'pick': cards its opponent took from the discard pile,
+  // 'oppDisc': cards its opponent threw away. The top discard is always visible.
+  const MEMORY = {
+    perfect: null,
+    human: { disc: a => a <= 3 ? 1 : Math.pow(0.82, a - 3), pick: a => a <= 6 ? 1 : Math.pow(0.9, a - 6),
+             oppDisc: a => a <= 3 ? 1 : Math.pow(0.8, a - 3), misremember: 0.3, miss: 0.12 },
+    forgetful: { disc: a => a <= 1 ? 1 : Math.pow(0.45, a - 1), pick: a => a <= 2 ? 1 : Math.pow(0.6, a - 2),
+                 oppDisc: a => a <= 1 ? 1 : Math.pow(0.45, a - 1), misremember: 0.3, miss: 0.25 },
+  };
+  // Fixed per hand and card (from a separate random salt, never the deck seed), so once forgotten, a card stays forgotten.
+  const memU = (salt, kind, c) => parseInt(sha256hex(salt + ':' + kind + ':' + c).slice(0, 8), 16) / 4294967296;
+
+  // The ONLY thing the AI is given. No stock order, no opponent hand — and only the public cards it still remembers.
+  function aiView(g, p, difficulty, memory) {
+    const h = g.hand, m = MEMORY[memory] || null, tick = h.tick || 0, salt = h.memSalt || '';
+    let discardPile = h.discard.slice(), oppPicked = h.picked[1 - p].slice(), oppDiscarded = h.discards[1 - p].slice();
+    const misremembered = [];
+    if (m && h.when) {
+      const top = discardPile[discardPile.length - 1], mine = new Set(h.hands[p]);
+      const age = c => tick - (h.when[c] || 0);
+      discardPile = discardPile.filter(c => c === top || memU(salt, 'd', c) < m.disc(age(c)));
+      oppDiscarded = oppDiscarded.filter(c => c === top || memU(salt, 'o', c) < m.oppDisc(age(c)));
+      const kept = [];
+      for (const c of oppPicked) {
+        if (memU(salt, 'p', c) < m.pick(tick - ((h.pickWhen || {})[c] || 0))) { kept.push(c); continue; }
+        if (memU(salt, 'x', c) < m.misremember) { // remembers it wrongly: a neighbouring rank in the same suit
+          const r = R(c) + (memU(salt, 'y', c) < 0.5 ? -1 : 1);
+          const alt = r >= 1 && r <= 13 ? RANKS[r - 1] + S(c) : null;
+          if (alt && !mine.has(alt) && alt !== top && !kept.includes(alt)) { kept.push(alt); misremembered.push([c, alt]); }
+        }
+      }
+      oppPicked = kept;
+    }
+    return Object.freeze({ hand: h.hands[p].slice(), discardPile, oppPicked, oppDiscarded, misremembered,
+      stockCount: h.stock.length, mustStock: h.mustStock, takenFromDiscard: h.taken, difficulty, memory: memory || 'perfect' });
   }
   // Performs one AI action for player p. Returns {kind, card, reason}.
-  function aiAct(g, p, difficulty) {
-    const h = g.hand, v = aiView(g, p, difficulty);
+  function aiAct(g, p, difficulty, memory) {
+    const h = g.hand, v = aiView(g, p, difficulty, memory);
     let out;
     if (h.phase === 'upcard') {
       const top = h.discard[h.discard.length - 1], d = aiUpcard(v);
@@ -416,7 +452,7 @@
   }
 
   const api = { startHand, takeDiscard, pass, drawStock, discardCard, knock, bigGin, applyResult, aiView, aiAct,
-    sha256hex, deckFromSeed, newSeed, freshDeck, R, S, V, SYM, RANKS, SUITS, label,
+    sha256hex, MEMORY, deckFromSeed, newSeed, freshDeck, R, S, V, SYM, RANKS, SUITS, label,
     findMelds, bestArrangements, best, bestDw, layOff, defenderBest, resolveKnock, BONUS,
     aiDiscard, aiDraw, aiUpcard, unseenCards };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Gin = api;

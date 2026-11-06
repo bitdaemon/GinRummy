@@ -140,6 +140,12 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .cell.gone{background:rgba(255,255,255,.18);color:#c8d6cf;text-decoration:line-through}
 .cell.opp{background:#ffd6d1;color:#8a1c12;box-shadow:0 0 0 2px #ff8a80}
 .cell.r{color:#e57373}.cell.mine.r{color:var(--red)}
+.cell.mine.known{box-shadow:0 0 0 2px var(--gold)}
+.lgd{display:grid;gap:6px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.lgd div{display:flex;align-items:center;gap:8px}
+.lgd i.cell{flex:none;width:20px;height:27px;aspect-ratio:auto;font-style:normal;font-size:11px}
+.cell.faded{background:rgba(255,255,255,.07);color:#8aa398;outline:1px dashed rgba(255,255,255,.3);outline-offset:-2px}
+.cell.wrong{background:#3b2d5e;color:#d9c8ff;outline:1px dashed #9b7fd1;outline-offset:-2px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--c)}
 pre.code{background:#0b1813;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px;overflow:auto;font-size:11.5px;max-height:220px}
@@ -201,20 +207,29 @@ const $ = s => document.querySelector(s);
 const SUITORDER = {S:0,H:1,C:2,D:3};
 const MELDCOL = ['var(--m1)','var(--m2)','var(--m3)','var(--m4)'];
 const DIFF_LABEL = {easy:'Easy', normal:'Normal', hard:'Hard'};
+const MEM_LABEL = {perfect:'Perfect memory', human:'Human memory', forgetful:'Forgetful'};
+const MEM_SHORT = {perfect:'Perfect', human:'Human', forgetful:'Forgetful'};
+const MEM_HELP = {
+  perfect: 'Remembers every card that has been seen, for the whole hand — like a computer.',
+  human: 'Remembers recent cards well, but older discards slowly slip its mind, it sometimes misremembers what you picked up, and now and then it overlooks a useful card on the discard pile.',
+  forgetful: 'Mostly reacts to what’s on top of the discard pile. Forgets almost everything older than a turn or two, and overlooks useful cards more often.' };
+const oppTitle = () => `Opponent · ${DIFF_LABEL[settings.difficulty]} · ${MEM_LABEL[settings.memory] || MEM_LABEL.human}`;
 const KEY = 'honest-gin.v1';
 
 // ---------- persistence ----------
 let store = load() || {};
 const settings = Object.assign({difficulty:'normal', target:100, fourColor:false, sort:'suit',
-  speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
+  memory:'human', speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
 if (settings.sort!=='suit' && settings.sort!=='rank') settings.sort = 'suit';
-const stats = Object.assign({games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0, draws:0, gins:0, aiGins:0,
+const stats = Object.assign({byMem:{}, games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0, draws:0, gins:0, aiGins:0,
   undercuts:0, aiUndercuts:0, startSum:[0,0], startN:0, firstDrawMelds:[0,0]}, store.stats);
 let history = store.history || [];
 let g = store.g || null;
 function load(){ try { return JSON.parse(localStorage.getItem(KEY)); } catch(e){ return null; } }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify({settings, stats, history, g})); } catch(e){} }
 
+function memStats(){ stats.byMem = stats.byMem || {}; const k = settings.memory || 'human';
+  return stats.byMem[k] = Object.assign({games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0}, stats.byMem[k]); }
 // ---------- UI state ----------
 let selected = null, freshId = null, aiTimer = null, oppText = '', modalOpen = false, errText = '';
 
@@ -376,7 +391,7 @@ function stepAI(){
   // Remember where things are on screen before the move, so the card can fly from there.
   const stockR = rectOf($('#stock')), discR = rectOf(discTopEl()), backs = oppBacks();
   const backR = rectOf(backs[Math.floor(backs.length / 2)]);
-  const out = E.aiAct(g, 1, settings.difficulty);
+  const out = E.aiAct(g, 1, settings.difficulty, settings.memory);
   switch(out.kind){
     case 'pass': oppText = `Opponent passed on the ${lbl(out.card)}.`; break;
     case 'takeUp': oppText = `Opponent took the upcard ${lbl(out.card)}.`; break;
@@ -406,6 +421,7 @@ function handOver(){
     if (r.type==='draw') stats.draws++;
     else {
       if (r.winnerP===0) stats.handsWon++; else stats.aiHandsWon++;
+      const bm = memStats(); bm.hands++; if (r.winnerP===0) bm.handsWon++; else bm.aiHandsWon++;
       if (r.type==='gin'||r.type==='bigGin'){ if (r.knockerP===0) stats.gins++; else stats.aiGins++; }
       if (r.type==='undercut'){ if (r.winnerP===0) stats.undercuts++; else stats.aiUndercuts++; }
     }
@@ -415,7 +431,7 @@ function handOver(){
     g.log = g.log || [];
     g.log.push({ n:g.handNo, type:r.type, w:r.winnerP, k:r.knockerP, pts:r.points||0 });
     const fin = E.applyResult(g);
-    if (fin){ stats.games++; if (fin.winner===0) stats.gamesWon++; }
+    if (fin){ stats.games++; if (fin.winner===0) stats.gamesWon++; const bm = memStats(); bm.games++; if (fin.winner===0) bm.gamesWon++; }
     save();
   }
   startReveal();
@@ -488,7 +504,7 @@ function renderHeader(override){
 function renderIdle(){
   size(); applyTheme(); renderHeader();
   $('#opp').className = 'zone';
-  $('#opp').innerHTML = `<div class="who"><span class="dot"></span>Opponent · ${DIFF_LABEL[settings.difficulty]}</div><div class="backs"></div>`;
+  $('#opp').innerHTML = `<div class="who"><span class="dot"></span>${oppTitle()}</div><div class="backs"></div>`;
   $('#table').innerHTML = `
     <div class="pile"><div class="pilebox" id="stock">${backHTML()}<span class="count">52</span></div><div class="lbl">Stock</div></div>
     <div class="pile"><div class="pilebox" id="disc"></div><div class="lbl">Discard</div></div>`;
@@ -518,7 +534,7 @@ function render(){
   // opponent
   const oppActive = h.turn===1 && h.phase!=='over';
   $('#opp').className = 'zone' + (oppActive?' active':'');
-  $('#opp').innerHTML = `<div class="who"><span class="dot"></span>Opponent · ${DIFF_LABEL[settings.difficulty]}${g.dealer===1?' · dealer':''}</div>
+  $('#opp').innerHTML = `<div class="who"><span class="dot"></span>${oppTitle()}${g.dealer===1?' · dealer':''}</div>
     <div class="backs">${h.hands[1].map(()=>backHTML()).join('')}</div>`;
   // table
   const top = h.discard[h.discard.length-1], under = h.discard[h.discard.length-2];
@@ -808,7 +824,7 @@ function showShowdown(){
     <div class="mono">lock ${h.commit}<br>seed ${h.seed}</div>
     <div class="row" style="margin-top:8px"><button class="btn small" data-copy="seed">Copy seed</button><button class="btn small" data-copy="deck">Copy deck order</button><button class="btn small" data-act="fair">How to verify yourself</button></div>
     <details><summary>Opponent’s reasoning this hand (${h.aiLog.length} decisions)</summary><ol class="log">${h.aiLog.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>
-    <div class="tag">Its inputs were only its own cards, the discard pile, the cards you picked up from it, and the stock count.</div></details>`;
+    <div class="tag">Its inputs were only its own cards, the discard pile, the cards you picked up from it, and the stock count, limited to what it remembered (${MEM_LABEL[settings.memory]}).</div></details>`;
   const s = g.scores;
   body += `<h3>Score</h3><p>You <b>${s[0]}</b> · Opponent <b>${s[1]}</b> — first to ${g.target}</p>
     <div class="row" style="margin-top:12px"><button class="btn primary" data-act="next">${g.over?'Final result':'Next hand'}</button><button class="btn" data-act="close">Back to table</button></div>`;
@@ -840,16 +856,33 @@ function showGameOver(){
 }
 
 function showSeen(){
-  const h = g.hand, mine = new Set(h.hands[0]), gone = new Set(h.discard), opp = new Set(h.picked[1]);
+  const h = g.hand, mem = settings.memory || 'human';
+  // Exactly what the opponent's code would receive right now, at this memory level.
+  const v = E.aiView(g, 1, settings.difficulty, mem);
+  const mine = new Set(h.hands[0]), opp = new Set(h.picked[1]);
+  const remembered = new Set(v.discardPile), forgotten = new Set(h.discard.filter(c=>!remembered.has(c)));
+  const knowsYouHave = new Set(v.oppPicked.filter(c=>mine.has(c)));
+  const wrong = new Set(v.misremembered.map(x=>x[1]));
   let grid = '';
   for (const s of ['S','H','C','D']) for (const r of E.RANKS){
-    const id = r+s, cls = mine.has(id)?'mine':opp.has(id)?'opp':gone.has(id)?'gone':'';
+    const id = r+s;
+    const cls = mine.has(id) ? 'mine' + (knowsYouHave.has(id)?' known':'') : opp.has(id) ? 'opp' : wrong.has(id) ? 'wrong'
+      : remembered.has(id) ? 'gone' : forgotten.has(id) ? 'faded' : '';
     grid += `<div class="cell ${cls} ${(s==='H'||s==='D')?'r':''}" title="${lbl(id)}">${r==='T'?'10':r}<span>${E.SYM[s]}</span></div>`;
   }
+  const intro = mem==='perfect'
+    ? 'The opponent has perfect memory: it knows everything on this chart, and nothing else.'
+    : `This chart shows what the opponent remembers right now (${MEM_LABEL[mem]}). Faded cells are discards it has forgotten.`;
   openModal(`<h2>Seen cards</h2>
-    <p>Everything the opponent can know is on this chart, and nothing else. It remembers the discard pile and the cards you pick up from it, so this chart gives you the same memory.</p>
+    <p>${intro}</p>
     <div class="grid">${grid}</div>
-    <div class="legend"><span style="--c:var(--card)">In your hand</span><span style="--c:#ff8a80">Known in opponent’s hand (it took them from the discard pile)</span><span style="--c:rgba(255,255,255,.25)">In the discard pile</span><span style="--c:rgba(255,255,255,.06)">Unknown (stock or opponent’s hand)</span></div>
+    <div class="lgd">
+      <div><i class="cell mine">7</i>In your hand</div>
+      <div><i class="cell mine known">7</i>In your hand, and the opponent knows (you took it from the pile)</div>
+      <div><i class="cell opp">7</i>In the opponent’s hand (it took it from the pile)</div>
+      <div><i class="cell gone">7</i>Discarded, and it remembers</div>
+      ${mem!=='perfect'?'<div><i class="cell faded">7</i>Discarded, but it has forgotten</div><div><i class="cell wrong">7</i>It wrongly thinks you picked this up</div>':''}
+      <div><i class="cell">7</i>Unknown (stock or opponent’s hand)</div></div>
     <div class="row" style="margin-top:14px"><button class="btn" data-act="close">Close</button></div>`,
     ev=>{ if(ev.target.closest('[data-act=close]')) closeModal(); });
 }
@@ -879,7 +912,7 @@ function showFairness(fromShowdown){
   openModal(`<h2>Why this game can’t be rigged</h2>
     <p><b>1. The deck is fixed before the deal.</b> Each hand starts with a random 256-bit seed from your device’s secure random generator. The full 52-card order comes from that seed, and its SHA-256 fingerprint (the “lock”) is shown before any card is dealt. Nothing can reorder the stock afterwards, so the game can’t slip the opponent a perfect card or keep the one you need away from you.</p>
     <p><b>2. The seed is revealed after every hand.</b> Run the script below on the seed and you get the same lock and the exact deck order. Cards are dealt from the start of that list: one to the non-dealer, one to the dealer, alternating, until each has 10. The 21st card is the upcard, and the stock is drawn in order after that.</p>
-    <p><b>3. The opponent plays blind.</b> Its code only ever gets: its own 10–11 cards, the discard pile, the cards you picked up from the discard pile, and how many cards are left in the stock. It never sees your hand or the stock. After each hand you can read its reasoning, and the “Seen cards” chart gives you the same memory it has.</p>
+    <p><b>3. The opponent plays blind.</b> Its code only ever gets: its own 10–11 cards, the discard pile, the cards you picked up from the discard pile, and how many cards are left in the stock. It never sees your hand or the stock. With Human or Forgetful memory it gets even less: only the public cards it still remembers. After each hand you can read its reasoning, and the “Seen cards” chart shows exactly what it remembers.</p>
     <p><b>4. Same rules for both players.</b> One set of rule functions checks every move, yours and its.</p>
     ${h && h.phase!=='over' && !g.over?`<h3>Current hand lock</h3><div class="mono">${h.commit}</div><div class="tag">Write down the first few characters and compare them after the hand.</div>`:''}
     <h3>Check it independently (Python 3)</h3>
@@ -901,8 +934,10 @@ function showMenu(){
   const st = stats, avg = i => st.startN ? (st.startSum[i]/st.startN).toFixed(1) : '–';
   openModal(`<h2>Menu</h2>
     <div class="row" style="margin-top:8px"><button class="btn primary" data-act="new">New game</button><button class="btn" data-act="fair">Fairness</button><button class="btn" data-act="rules">Rules</button></div>
-    <h3>Opponent</h3><div class="seg">${segD}</div>
+    <h3>Opponent skill</h3><div class="seg">${segD}</div>
     <div class="tag" style="margin-top:6px">Easy makes mistakes. Normal plays solid basic gin. Hard also reads your pickups and discards, and knocks less in the late game. None of them can see your cards.</div>
+    <h3>Opponent memory</h3><div class="seg">${['perfect','human','forgetful'].map(k=>`<button data-mem="${k}" class="${settings.memory===k?'on':''}">${MEM_SHORT[k]}</button>`).join('')}</div>
+    <div class="tag" style="margin-top:6px"><b>${MEM_SHORT[settings.memory]}:</b> ${MEM_HELP[settings.memory]} Combine any memory level with any skill level; this applies straight away.</div>
     <h3>Play to</h3><div class="seg">${segT}</div><div class="tag" style="margin-top:6px">Applies to your next new game.</div>
     <h3>Look &amp; feel</h3><div class="row"><button class="btn" data-act="look">Appearance &amp; animation speed…</button></div>
     <h3>Your stats</h3>
@@ -914,6 +949,12 @@ function showMenu(){
       <tr><td>Undercuts scored</td><td>${st.undercuts}</td><td>${st.aiUndercuts}</td></tr>
       <tr><td>Avg. starting deadwood</td><td>${avg(0)}</td><td>${avg(1)}</td></tr>
     </table>
+    <h3>By opponent memory</h3>
+    <table class="t"><tr><th>Memory</th><th>Games (you–opp)</th><th>Hands (you–opp)</th></tr>
+      ${['perfect','human','forgetful'].map(k=>{ const b = (st.byMem||{})[k] || {games:0,gamesWon:0,handsWon:0,aiHandsWon:0};
+        return `<tr><td>${MEM_SHORT[k]}${settings.memory===k?' ✓':''}</td><td>${b.gamesWon}–${b.games-b.gamesWon}</td><td>${b.handsWon}–${b.aiHandsWon}</td></tr>`; }).join('')}
+    </table>
+    <div class="tag" style="margin-top:6px">Counted from now on; earlier games aren’t split by memory level.</div>
     <div class="tag" style="margin-top:6px">“Average starting deadwood” measures how good each side’s dealt hands were, over ${st.startN} deals (lower is better). With a fair deck the two numbers drift together as more hands are played.</div>
     <div class="row" style="margin-top:8px"><button class="btn small" data-act="reset">Reset stats</button></div>
     <h3>Install</h3>
@@ -922,6 +963,7 @@ function showMenu(){
   ev=>{
     const b = ev.target.closest('button'); if(!b) return;
     if (b.dataset.diff){ settings.difficulty=b.dataset.diff; save(); render(); return showMenu(); }
+    if (b.dataset.mem){ settings.memory=b.dataset.mem; save(); render(); return showMenu(); }
     if (b.dataset.target){ settings.target=+b.dataset.target; save(); return showMenu(); }
     const a = b.dataset.act;
     if (a==='new'){
@@ -931,7 +973,7 @@ function showMenu(){
     if (a==='fair') showFairness();
     if (a==='rules') showRules();
     if (a==='look') showAppearance();
-    if (a==='reset'){ if (b.dataset.confirm){ Object.assign(stats,{games:0,gamesWon:0,hands:0,handsWon:0,aiHandsWon:0,draws:0,gins:0,aiGins:0,undercuts:0,aiUndercuts:0,startSum:[0,0],startN:0}); save(); showMenu(); } else { b.dataset.confirm='1'; b.textContent='Tap again to reset'; } }
+    if (a==='reset'){ if (b.dataset.confirm){ Object.assign(stats,{byMem:{},games:0,gamesWon:0,hands:0,handsWon:0,aiHandsWon:0,draws:0,gins:0,aiGins:0,undercuts:0,aiUndercuts:0,startSum:[0,0],startN:0}); save(); showMenu(); } else { b.dataset.confirm='1'; b.textContent='Tap again to reset'; } }
     if (a==='close') closeModal();
   });
 }
@@ -982,6 +1024,7 @@ function showRules(){
       <li><b>Gin</b> (0 deadwood): ${E.BONUS.gin} + opponent’s deadwood, and they can’t lay off. <b>Big Gin</b> (all 11 cards melded): ${E.BONUS.bigGin} + deadwood.</li>
     </ul>
     <p>If the stock is down to 2 cards and nobody has knocked, the hand is dead and the same dealer deals again.</p>
+    <p><b>Tip — the opponent’s memory:</b> a sharp player remembers every discard and every card you pick up, and uses that to guess what you’re collecting. Choose how much the computer remembers in the menu under Opponent memory: <b>Perfect</b> remembers everything, <b>Human</b> (the default) gradually forgets older discards, sometimes misremembers your pickups and overlooks the odd useful card, and <b>Forgetful</b> mostly reacts to the top of the pile. Tap <b>Seen cards</b> any time to see what it remembers right now.</p>
     <p><b>Game:</b> first to the target. Winner gets +${E.BONUS.game}, both get +${E.BONUS.box} per hand won, and a shutout doubles the winner’s total.</p>
     <p><b>Controls:</b> tap the stock or discard pile to draw. Tap a card to select it, then tap it again (or tap the discard pile) to discard. Select a card and press Knock to knock with it.</p>
     <div class="row" style="margin-top:14px"><button class="btn" data-act="close">Close</button></div>`,

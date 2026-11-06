@@ -28,12 +28,13 @@ It was built as an answer to card games that *feel* rigged, where the opponent a
 - **Provably fair deck.** Each deck order is locked in before the deal and revealed after the hand.
 - **An opponent that plays blind.** The computer never sees your hand or the stock.
 - **Three difficulty levels:** Easy, Normal and Hard.
+- **Three opponent memory levels:** Perfect, Human (the default) and Forgetful. They can be combined with any difficulty level, and the current pair is shown above the opponent's cards.
 - **End of hand on the table.** When someone knocks, both hands are laid out face up with melds on the left and deadwood on the right. Laid-off cards fly onto the knocker's melds, then the points fly to the score. **Hand details** shows the full breakdown, the fairness check and the opponent's reasoning.
 - **Opponent reasoning.** After every hand you can read why the opponent made each move.
-- **Seen-cards chart.** It shows you exactly the information the opponent has: the discard pile and the cards you've picked up from it.
+- **Seen-cards chart.** It shows exactly what the opponent remembers right now: which discards it still recalls, which it has forgotten, which of your pickups it knows about, and anything it has misremembered.
 - **Automatic meld detection.** Your hand is grouped into melds, and your deadwood is counted live.
 - **Full standard scoring:** knock, gin, big gin, undercut, layoffs, box bonus, game bonus and shutout.
-- **Statistics,** including a luck tracker that compares your average starting hand with the opponent's.
+- **Statistics,** including a luck tracker that compares your average starting hand with the opponent's, and results split by opponent memory level.
 - **Saved progress.** If you close the app mid-hand, you continue where you left off.
 - **Animated play.** The deal, every draw, the opponent's moves and every discard are animated, so you can follow what's happening. Speed can be set to Off, Fast, Normal or Slow.
 - **Customisable look.** Choose the table colour (presets or any custom colour), the card face style (Classic, Modern, Jumbo for small screens, Vintage), the card back colour and pattern, and optional four-colour suits.
@@ -66,7 +67,20 @@ The computer player's code only ever receives this information (built by `aiView
 | The cards you picked up from the discard pile | The seed |
 | How many cards are left in the stock | |
 
+With **Human** or **Forgetful** memory it receives even less: only the public cards it still remembers (see [The opponent's memory](#the-opponents-memory)).
+
 Its decisions are logged with a plain-language reason for each move, for example "Took 7♥, it fits a meld (deadwood 17 → 10)". The log is shown after every hand.
+
+### The opponent's memory
+A machine never forgets a card, which gives it an edge over a human player even when it can't see your hand. The **Opponent memory** setting in the menu evens this out:
+
+| Level | What the opponent remembers |
+|---|---|
+| **Perfect** | Every discard and every card you've picked up, for the whole hand |
+| **Human** *(default)* | Recent cards well. Older discards slowly slip its mind, it sometimes misremembers a card you picked up as a neighbouring rank, and now and then it overlooks a useful card on the discard pile |
+| **Forgetful** | Mostly just the top of the discard pile. It forgets almost everything older than a turn or two and overlooks useful cards more often |
+
+Forgetting is applied by limiting what the opponent's code receives, not by changing the deck or the rules. Whether a card is forgotten is decided by a separate random value for each hand, never the deck seed, and once a card is forgotten it stays forgotten.
 
 ### 4. Same rules for both players
 Every move, yours and the opponent's, goes through the same rule functions in `engine.js`.
@@ -85,9 +99,9 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 | Big Gin | Press **Big Gin!** when all 11 cards are melded |
 | Pass on the first upcard | Press **Pass** |
 | Sort your deadwood | **Deadwood by suit / rank**. Melds and sets always stay grouped on the left; only the deadwood is re-sorted |
-| See what's known | **Seen cards** |
+| See what the opponent remembers | **Seen cards** |
 | Score sheet (every hand, running totals, hands won) | Tap the standings at the top of the screen |
-| Settings, stats, rules | **☰** menu |
+| Opponent skill and memory, settings, stats, rules | **☰** menu |
 | Table, cards, animation speed | **☰** menu → **Appearance & animation speed** |
 
 The 🔒 line under the piles shows the current hand's lock. Tap it for the full fairness explanation.
