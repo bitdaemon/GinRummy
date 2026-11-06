@@ -32,7 +32,7 @@ It was built as an answer to card games that *feel* rigged, where the opponent a
 - **End of hand on the table.** When someone knocks, both hands are laid out face up with melds on the left and deadwood on the right. Laid-off cards fly onto the knocker's melds, then the points fly to the score. **Hand details** shows the full breakdown, the fairness check and the opponent's reasoning.
 - **Action log.** The **Log** toggle shows every move of the current hand, by you and the opponent, newest first: draws, pickups, discards, passes, knocks and the result. Only public information is shown: the opponent's stock draws are listed without the card. The log belongs to the current hand only and is cleared when the next hand is dealt; nothing from earlier hands is kept.
 - **Opponent reasoning.** After every hand you can read why the opponent made each move.
-- **Seen-cards chart on the table.** A compact chart sits between the opponent's cards and the piles and updates after every move. Tap it for the legend, or hide it with the **Seen** toggle. It shows exactly what the opponent remembers right now: which discards it still recalls, which it has forgotten, which of your pickups it knows about, and anything it has misremembered.
+- **Seen-cards chart.** Switch it on with the **Seen** toggle. It floats over the table without moving the cards: under the opponent's cards on a phone, and in the left margin on a wide screen. It updates after every move, and tapping it shows the legend. It shows exactly what the opponent remembers right now: which discards it still recalls (grey, dotted outline), which it has forgotten (crossed out), which of your pickups it knows about, and anything it has misremembered.
 - **Automatic meld detection.** Your hand is grouped into melds, and your deadwood is counted live.
 - **Full standard scoring:** knock, gin, big gin, undercut, layoffs, box bonus, game bonus and shutout.
 - **Statistics,** including a luck tracker that compares your average starting hand with the opponent's, and results split by opponent memory level.
@@ -100,8 +100,8 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 | Big Gin | Press **Big Gin!** when all 11 cards are melded |
 | Pass on the first upcard | Press **Pass** |
 | Sort your deadwood | **Sort: suit / rank**. Melds and sets always stay grouped on the left; only the deadwood is re-sorted |
-| See what the opponent remembers | The **Seen cards** chart on the table (tap it for the legend). The **Seen** toggle shows or hides it |
-| Check back on earlier moves this hand | The **Log** toggle. On small screens only one of Seen and Log is open at a time |
+| See what the opponent remembers | The **Seen** toggle opens the seen-cards chart; tap the chart for the legend, or ✕ to close it |
+| Check back on earlier moves this hand | The **Log** toggle (it floats too: in the right margin on wide screens). On phones only one of Seen and Log is open at a time |
 | Score sheet (every hand, running totals, hands won) | Tap the standings at the top of the screen |
 | Opponent skill and memory, settings, stats, rules | **☰** menu |
 | Table, cards, animation speed | **☰** menu → **Appearance & animation speed** |

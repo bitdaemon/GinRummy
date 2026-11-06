@@ -47,12 +47,25 @@ table.sheet tr.tot td,table.sheet tr.tot th{border-top:1px solid rgba(255,255,25
 .backs{display:flex;justify-content:center}
 .backs .card{width:calc(var(--cw)*.62);height:calc(var(--ch)*.62);margin-left:calc(var(--cw)*-.36)}
 .backs .card:first-child{margin-left:0}
-#seenPanel{width:100%;max-width:560px;margin:6px auto 0;cursor:pointer;padding:6px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
+#seenPanel{width:100%;max-width:560px;cursor:pointer;padding:6px;border-radius:10px}
 #seenPanel[hidden],#logPanel[hidden]{display:none}
-#panels{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
-#panels>section{flex:1 1 100%}
+/* Seen cards and Log float over the table: they never push the cards or piles around. */
+#app{position:relative}
+#panels{position:absolute;left:8px;right:8px;top:0;z-index:20;display:flex;gap:6px;justify-content:center;pointer-events:none}
+#panels>section{pointer-events:auto;flex:1 1 100%;background:rgba(9,30,23,.93);border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 @media (min-width:760px){#panels>section{flex:1 1 300px}}
-#logPanel{width:100%;max-width:560px;margin:6px auto 0;padding:6px 8px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08)}
+#logPanel{width:100%;max-width:560px;padding:6px 8px;border-radius:10px}
+.pclose{background:none;border:none;color:var(--muted);font-size:14px;line-height:1;padding:0 2px 0 8px;cursor:pointer}
+/* Wide screens: dock them in the margins either side of the table. */
+@media (min-width:1180px){
+  #panels{position:static}
+  #seenPanel,#logPanel{position:fixed;top:76px;width:calc((100vw - 860px)/2);max-width:340px}
+  #seenPanel{left:16px} #logPanel{right:16px}
+  #logPanel ol{max-height:calc(100vh - 160px)!important}
+  #seenPanel .grid{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(13,auto);grid-auto-flow:column}
+  #seenPanel .cell{height:24px;font-size:12px}
+  #panels .cap{flex-wrap:wrap;gap:2px 8px}
+}
 #logPanel .cap{font-size:10.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;margin:0 2px 4px}
 #logPanel ol{list-style:none;margin:0;padding:0;max-height:118px;overflow:auto;font-size:12.5px;line-height:1.45}
 @media (min-height:900px){#logPanel ol{max-height:170px}}
@@ -239,8 +252,9 @@ const KEY = 'honest-gin.v1';
 // ---------- persistence ----------
 let store = load() || {};
 const settings = Object.assign({difficulty:'normal', target:100, fourColor:false, sort:'suit',
-  memory:'human', seenOnTable:true, logOnTable:false, speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
+  memory:'human', seenOnTable:false, logOnTable:false, speed:'normal', table:'green', tableCustom:'#2e6b4f', face:'classic', back:'burgundy', backCustom:'#7a1f2b', backPattern:'lattice'}, store.settings);
 if (settings.sort!=='suit' && settings.sort!=='rank') settings.sort = 'suit';
+if (!settings.seenToggleV2){ settings.seenOnTable = false; settings.seenToggleV2 = true; }
 const stats = Object.assign({byMem:{}, games:0, gamesWon:0, hands:0, handsWon:0, aiHandsWon:0, draws:0, gins:0, aiGins:0,
   undercuts:0, aiUndercuts:0, startSum:[0,0], startN:0, firstDrawMelds:[0,0]}, store.stats);
 let history = store.history || [];
@@ -382,8 +396,8 @@ function newGame(){
   startHand();
 }
 // Action log for the current hand only: it is part of the hand and is discarded when the next hand is dealt.
-// On short screens only one on-table panel (Seen or Log) is open at a time, so the cards stay in view.
-const shortScreen = () => window.innerHeight < 760;
+// On narrow screens only one floating panel (Seen or Log) is open at a time, so the cards stay in view.
+const shortScreen = () => window.innerWidth < 760;
 function logAct(p, text){ const h = g && g.hand; if (!h) return; (h.actLog = h.actLog || []).push({p, t:text}); }
 function startHand(){
   E.startHand(g);
@@ -564,7 +578,7 @@ function render(){
   const h = g.hand;
   if (h.phase==='over' && (h.revealed || reveal)) return renderReveal(cw);
   renderHeader();
-  renderSeenPanel(!!settings.seenOnTable); renderLogPanel(!!settings.logOnTable);
+  renderSeenPanel(!!settings.seenOnTable); renderLogPanel(!!settings.logOnTable); requestAnimationFrame(placePanels);
   // opponent
   const oppActive = h.turn===1 && h.phase!=='over';
   $('#opp').className = 'zone' + (oppActive?' active':'');
@@ -683,7 +697,7 @@ function revealRows(stage){
   return rows;
 }
 function renderReveal(cw){
-  renderSeenPanel(false); renderLogPanel(!!settings.logOnTable);
+  renderSeenPanel(false); renderLogPanel(!!settings.logOnTable); requestAnimationFrame(placePanels);
   const h = g.hand, r = h.result, stage = reveal ? reveal.stage : 3;
   const rows = revealRows(stage);
   const showScores = stage >= 3;
@@ -788,6 +802,7 @@ document.addEventListener('click', e=>{
   if (g.hand.phase==='over'){
     if (t.closest('#nextBtn')) return startHand();
     if (t.closest('#detailsBtn')) return showShowdown();
+    if (t.closest('.pclose')){ settings.logOnTable = false; save(); return render(); }
     if (t.closest('#logBtn')){ settings.logOnTable = !settings.logOnTable; if (settings.logOnTable && shortScreen()) settings.seenOnTable = false; save(); return render(); }
     if (t.closest('#lockBtn')) return showFairness();
     return;
@@ -802,6 +817,8 @@ document.addEventListener('click', e=>{
   if (t.closest('#bigGinBtn')) return doBigGin();
   if (t.closest('#sortBtn')){ settings.sort = settings.sort==='suit' ? 'rank' : 'suit'; save(); return render(); }
   if (t.closest('#seenBtn')){ settings.seenOnTable = !settings.seenOnTable; if (settings.seenOnTable && shortScreen()) settings.logOnTable = false; save(); return render(); }
+  const pc = t.closest('.pclose');
+  if (pc){ if (pc.dataset.close==='seen') settings.seenOnTable = false; else settings.logOnTable = false; save(); return render(); }
   if (t.closest('#seenPanel')) return showSeen();
   if (t.closest('#logBtn')){ settings.logOnTable = !settings.logOnTable; if (settings.logOnTable && shortScreen()) settings.seenOnTable = false; save(); return render(); }
   if (t.closest('#lockBtn')) return showFairness();
@@ -906,10 +923,20 @@ function seenGridHTML(){
   for (const s of ['S','H','C','D']) for (const r of E.RANKS){
     const id = r+s;
     const cls = mine.has(id) ? 'mine' + (knowsYouHave.has(id)?' known':'') : opp.has(id) ? 'opp' : wrong.has(id) ? 'wrong'
-      : remembered.has(id) ? 'gone' : forgotten.has(id) ? 'faded' : '';
+      : remembered.has(id) ? 'faded' : forgotten.has(id) ? 'gone' : '';
     grid += `<div class="cell ${cls} ${(s==='H'||s==='D')?'r':''}" title="${lbl(id)}">${r==='T'?'10':r}<span>${E.SYM[s]}</span></div>`;
   }
   return `<div class="grid">${grid}</div>`;
+}
+function placePanels(){
+  const box = $('#panels'); if (!box) return;
+  if (window.innerWidth >= 1180){ box.style.top = ''; return; }
+  const app = rectOf($('#app')), opp = rectOf($('#opp')), piles = rectOf($('#table .pile')) || rectOf($('#table'));
+  let top = opp.bottom - app.top + 4;
+  const h = box.getBoundingClientRect().height;
+  // Not enough room above the piles: sit over the opponent's face-down cards instead (they can't be tapped anyway).
+  if (piles && opp.bottom + 4 + h > piles.top - 4) top = Math.max(rectOf($('header')).bottom - app.top + 2, piles.top - app.top - 8 - h);
+  box.style.top = top + 'px';
 }
 function renderLogPanel(show){
   const el = $('#logPanel');
@@ -918,20 +945,20 @@ function renderLogPanel(show){
   const log = (g.hand.actLog || []);
   const who = p => p===0 ? '<span class="w0">You</span>' : p===1 ? '<span class="w1">Opp</span>' : '<span class="w-1">—</span>';
   const items = log.map((e,i)=>`<li><span class="n">${i+1}</span>${who(e.p)}<span>${esc(e.t)}</span></li>`).reverse().join('');
-  el.innerHTML = `<div class="cap"><span>Action log · this hand</span><span>${log.length} ${log.length===1?'move':'moves'} · newest first</span></div><ol>${items}</ol>`;
+  el.innerHTML = `<div class="cap"><span>Action log · this hand</span><span>${log.length} ${log.length===1?'move':'moves'} · newest first<button class="pclose" data-close="log" aria-label="Hide log">✕</button></span></div><ol>${items}</ol>`;
 }
 function renderSeenPanel(show){
   const el = $('#seenPanel');
   el.hidden = !show;
   if (!show){ el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="cap"><span>Seen cards · ${MEM_SHORT[settings.memory] || 'Human'} memory</span><span>Tap for legend</span></div>${seenGridHTML()}`;
+  el.innerHTML = `<div class="cap"><span>Seen cards · ${MEM_SHORT[settings.memory] || 'Human'} memory</span><span>Tap for legend<button class="pclose" data-close="seen" aria-label="Hide seen cards">✕</button></span></div>${seenGridHTML()}`;
 }
 function showSeen(){
   const mem = settings.memory || 'human';
   const grid = seenGridHTML();
   const intro = mem==='perfect'
     ? 'The opponent has perfect memory: it knows everything on this chart, and nothing else.'
-    : `This chart shows what the opponent remembers right now (${MEM_LABEL[mem]}). Faded cells are discards it has forgotten.`;
+    : `This chart shows what the opponent remembers right now (${MEM_LABEL[mem]}). Crossed-out cells are discards it has forgotten.`;
   openModal(`<h2>Seen cards</h2>
     <p>${intro}</p>
     ${grid}
@@ -939,8 +966,8 @@ function showSeen(){
       <div><i class="cell mine">7</i>In your hand</div>
       <div><i class="cell mine known">7</i>In your hand, and the opponent knows (you took it from the pile)</div>
       <div><i class="cell opp">7</i>In the opponent’s hand (it took it from the pile)</div>
-      <div><i class="cell gone">7</i>Discarded, and it remembers</div>
-      ${mem!=='perfect'?'<div><i class="cell faded">7</i>Discarded, but it has forgotten</div><div><i class="cell wrong">7</i>It wrongly thinks you picked this up</div>':''}
+      <div><i class="cell faded">7</i>Discarded, and it remembers</div>
+      ${mem!=='perfect'?'<div><i class="cell gone">7</i>Discarded, but it has forgotten</div><div><i class="cell wrong">7</i>It wrongly thinks you picked this up</div>':''}
       <div><i class="cell">7</i>Unknown (stock or opponent’s hand)</div></div>
     <div class="row" style="margin-top:14px"><button class="btn" data-act="close">Close</button></div>`,
     ev=>{ if(ev.target.closest('[data-act=close]')) closeModal(); });
