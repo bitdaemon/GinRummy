@@ -244,6 +244,14 @@ The **Fairness** screen in the menu also lists the seeds of recent hands.
 
 ---
 
+## A note on how this was built
+
+This is a vibe-coded project. I designed what it should do (a deck locked before the deal and revealed afterwards, an opponent that only sees what a human opponent would, how melds and deadwood are laid out, the animations and the look), and I tested it by playing it on my own Mac and phone, but most of the code was written with an AI assistant.
+
+The fairness parts can be checked without trusting the app: `tools/verify.py` rebuilds any hand's deck from its seed using nothing but Python's standard library. During development the shuffle was also checked for bias over tens of thousands of shuffles, and the rules engine was run through thousands of computer-vs-computer hands. Those checks aren't in this repository yet, though, and the code hasn't had a professional code review. If you spot something off, please open an issue.
+
+---
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
