@@ -81,7 +81,7 @@ Every move, yours and the opponent's, goes through the same rule functions in `e
 | Knock or go Gin | Select the card to discard, then press **Knock** or **Gin!** |
 | Big Gin | Press **Big Gin!** when all 11 cards are melded |
 | Pass on the first upcard | Press **Pass** |
-| Change hand sorting | **Sort:** melds → suit → rank |
+| Sort your deadwood | **Deadwood by suit / rank**. Melds and sets always stay grouped on the left; only the deadwood is re-sorted |
 | See what's known | **Seen cards** |
 | Settings, stats, rules | **☰** menu |
 
